@@ -1,11 +1,10 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="logo.svg">
-    <source media="(prefers-color-scheme: light)" srcset="logo-light.svg">
-    <img src="logo-light.svg" alt="BaseToken" width="64">
+    <source media="(prefers-color-scheme: dark)" srcset="logo-readme.svg">
+    <source media="(prefers-color-scheme: light)" srcset="logo-readme-light.svg">
+    <img src="logo-readme-light.svg" alt="BaseToken" height="56">
   </picture>
 </p>
-<h1 align="center">BaseToken</h1>
 
 Generate Material Design 3 color tokens from a seed color using the HCT color space.
 
