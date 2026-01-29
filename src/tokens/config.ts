@@ -1,6 +1,6 @@
 /**
  * Token Generator Configuration
- * Opinionated defaults with minimal configuration options
+ * Opinionated defaults matching the Go reference implementation
  */
 
 /** Supported color output formats */
@@ -26,16 +26,22 @@ export interface OpenPropsConfig {
   files: string[];
 }
 
-/** Semantic token mappings */
+/** Semantic token mappings - all categories from the Go reference */
 export interface SemanticConfig {
   space: Record<string, string>;
-  radius: Record<string, string>;
-  shadow: Record<string, string>;
-  weight: Record<string, string>;
+  "space-fluid": Record<string, string>;
+  "type-size": Record<string, string>;
   leading: Record<string, string>;
-  duration: Record<string, string>;
-  ease: Record<string, string>;
+  weight: Record<string, string>;
+  font: Record<string, string>;
+  radius: Record<string, string>;
+  border: Record<string, string>;
+  shadow: Record<string, string>;
   layer: Record<string, string>;
+  ease: Record<string, string>;
+  duration: Record<string, string>;
+  "content-width": Record<string, string>;
+  breakpoint: Record<string, string>;
 }
 
 /** Complete configuration */
@@ -46,15 +52,6 @@ export interface TokenConfig {
   openprops: OpenPropsConfig;
   semantic: SemanticConfig;
 }
-
-/** Open Props file name to source path mapping */
-export const OPENPROPS_FILES: Record<string, string> = {
-  fonts: "props.fonts.css",
-  sizes: "props.sizes.css",
-  shadows: "props.shadows.css",
-  borders: "props.borders.css",
-  easings: "props.easing.css",
-};
 
 /** Default configuration - opinionated, ready to use */
 export const DEFAULT_CONFIG: TokenConfig = {
@@ -88,19 +85,34 @@ export const DEFAULT_CONFIG: TokenConfig = {
       "2xl": "size-7",
     },
 
-    radius: {
-      none: "0",
-      sm: "radius-2",
-      md: "radius-3",
-      lg: "radius-4",
-      full: "radius-round",
+    "space-fluid": {
+      xs: "size-fluid-1",
+      sm: "size-fluid-2",
+      md: "size-fluid-3",
+      lg: "size-fluid-4",
+      xl: "size-fluid-5",
+      "2xl": "size-fluid-6",
     },
 
-    shadow: {
-      sm: "shadow-2",
-      md: "shadow-3",
-      lg: "shadow-4",
-      xl: "shadow-5",
+    "type-size": {
+      xs: "font-size-0",
+      sm: "font-size-1",
+      base: "font-size-2",
+      md: "font-size-3",
+      lg: "font-size-4",
+      xl: "font-size-5",
+      "2xl": "font-size-6",
+      "3xl": "font-size-7",
+      "4xl": "font-size-8",
+    },
+
+    leading: {
+      none: "\"1\"",
+      tight: "font-lineheight-1",
+      snug: "font-lineheight-2",
+      normal: "font-lineheight-3",
+      relaxed: "font-lineheight-4",
+      loose: "font-lineheight-5",
     },
 
     weight: {
@@ -111,20 +123,40 @@ export const DEFAULT_CONFIG: TokenConfig = {
       bold: "font-weight-7",
     },
 
-    leading: {
-      none: "1",
-      tight: "font-lineheight-1",
-      snug: "font-lineheight-2",
-      normal: "font-lineheight-3",
-      relaxed: "font-lineheight-4",
-      loose: "font-lineheight-5",
+    font: {
+      body: "font-sans",
+      heading: "font-sans",
+      code: "font-mono",
     },
 
-    duration: {
-      instant: "0ms",
-      fast: "150ms",
-      normal: "300ms",
-      slow: "500ms",
+    radius: {
+      none: "0",
+      sm: "radius-2",
+      md: "radius-3",
+      lg: "radius-4",
+      full: "radius-round",
+    },
+
+    border: {
+      none: "0",
+      sm: "border-size-1",
+      md: "border-size-2",
+      lg: "border-size-3",
+    },
+
+    shadow: {
+      sm: "shadow-2",
+      md: "shadow-3",
+      lg: "shadow-4",
+      xl: "shadow-5",
+    },
+
+    layer: {
+      base: "\"1\"",
+      raised: "\"10\"",
+      dropdown: "\"100\"",
+      sticky: "\"500\"",
+      modal: "\"1000\"",
     },
 
     ease: {
@@ -135,13 +167,25 @@ export const DEFAULT_CONFIG: TokenConfig = {
       "in-out": "ease-in-out-2",
     },
 
-    layer: {
-      base: "1",
-      raised: "10",
-      dropdown: "100",
-      sticky: "500",
-      modal: "1000",
-      toast: "2000",
+    duration: {
+      instant: "0ms",
+      fast: "150ms",
+      normal: "300ms",
+      slow: "500ms",
+    },
+
+    "content-width": {
+      sm: "640px",
+      md: "768px",
+      lg: "1024px",
+      xl: "1280px",
+    },
+
+    breakpoint: {
+      sm: "640px",
+      md: "768px",
+      lg: "1024px",
+      xl: "1280px",
     },
   },
 };

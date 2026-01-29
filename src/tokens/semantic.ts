@@ -69,29 +69,159 @@ const COLOR_ROLE_MAP: Array<{ schemeKey: keyof SchemeColors; semanticName: strin
   { schemeKey: "surfaceTint", semanticName: "surface-tint", group: "Utility" },
 ];
 
-/** Semantic category display names and output order */
-const SEMANTIC_CATEGORIES: Array<{ key: keyof SemanticConfig; displayName: string }> = [
-  { key: "space", displayName: "Spacing Scale" },
-  { key: "radius", displayName: "Border Radii" },
-  { key: "shadow", displayName: "Shadows" },
-  { key: "weight", displayName: "Font Weights" },
-  { key: "leading", displayName: "Line Heights" },
-  { key: "duration", displayName: "Durations" },
-  { key: "ease", displayName: "Easings" },
-  { key: "layer", displayName: "Z-Index Layers" },
+/** Semantic category definitions matching Go reference order */
+const SEMANTIC_CATEGORIES: Array<{ key: keyof SemanticConfig; displayName: string; prefix: string }> = [
+  { key: "space", displayName: "Spacing Scale", prefix: "space" },
+  { key: "space-fluid", displayName: "Fluid Spacing", prefix: "space-fluid" },
+  { key: "type-size", displayName: "Typography Sizes", prefix: "type-size" },
+  { key: "leading", displayName: "Line Heights", prefix: "leading" },
+  { key: "weight", displayName: "Font Weights", prefix: "weight" },
+  { key: "font", displayName: "Font Families", prefix: "font" },
+  { key: "radius", displayName: "Border Radii", prefix: "radius" },
+  { key: "border", displayName: "Border Widths", prefix: "border" },
+  { key: "shadow", displayName: "Shadows", prefix: "shadow" },
+  { key: "layer", displayName: "Z-Index Layers", prefix: "layer" },
+  { key: "ease", displayName: "Easings", prefix: "ease" },
+  { key: "duration", displayName: "Durations", prefix: "duration" },
+  { key: "content-width", displayName: "Content Widths", prefix: "content-width" },
+  { key: "breakpoint", displayName: "Breakpoints", prefix: "breakpoint" },
 ];
 
+// --- Sorting logic (ported from Go) ---
+
+/** T-shirt size sort order */
+const TSHIRT_SIZE_ORDER: Record<string, number> = {
+  xxs: 1,
+  xs: 2,
+  sm: 3,
+  base: 4,
+  md: 5,
+  lg: 6,
+  xl: 7,
+  "2xl": 8,
+  "3xl": 9,
+  "4xl": 10,
+  "5xl": 11,
+};
+
+/** Font weight sort order */
+const WEIGHT_ORDER: Record<string, number> = {
+  thin: 1,
+  light: 2,
+  normal: 3,
+  medium: 4,
+  semibold: 5,
+  bold: 6,
+  extrabold: 7,
+  black: 8,
+};
+
+/** Line height sort order */
+const LEADING_ORDER: Record<string, number> = {
+  none: 1,
+  tight: 2,
+  snug: 3,
+  normal: 4,
+  relaxed: 5,
+  loose: 6,
+};
+
+/** Z-index layer sort order */
+const LAYER_ORDER: Record<string, number> = {
+  base: 1,
+  raised: 2,
+  dropdown: 3,
+  sticky: 4,
+  modal: 5,
+};
+
 /**
- * Format a semantic value for CSS output
- * - "0" -> 0
- * - "none" -> none
- * - "150ms" -> 150ms (numeric with unit)
- * - "size-3" -> var(--op-size-3) (token reference)
+ * Sort semantic keys in a logical order for the category.
+ * Known keys come first in their defined order, unknown keys sort
+ * alphabetically at the end.
  */
-function formatSemanticValue(value: string, primitivesPrefix: string): string {
+export function sortSemanticKeys(
+  group: Record<string, unknown>,
+  category: string
+): string[] {
+  const keys = Object.keys(group);
+
+  // Select the appropriate order map based on category
+  let orderMap: Record<string, number> | null = null;
+
+  switch (category) {
+    case "space":
+    case "space-fluid":
+    case "type-size":
+    case "radius":
+    case "shadow":
+    case "border":
+    case "duration":
+    case "breakpoint":
+    case "content-width":
+      orderMap = TSHIRT_SIZE_ORDER;
+      break;
+    case "weight":
+      orderMap = WEIGHT_ORDER;
+      break;
+    case "leading":
+      orderMap = LEADING_ORDER;
+      break;
+    case "layer":
+      orderMap = LAYER_ORDER;
+      break;
+    default:
+      // Alphabetical for others (font, ease, etc.)
+      return [...keys].sort();
+  }
+
+  const map = orderMap;
+  return [...keys].sort((a, b) => {
+    const oa = map[a];
+    const ob = map[b];
+
+    if (oa !== undefined && ob !== undefined) {
+      return oa - ob;
+    }
+    if (oa !== undefined) return -1;
+    if (ob !== undefined) return 1;
+
+    return a.localeCompare(b);
+  });
+}
+
+/**
+ * Get the color group name for a semantic color role (for CSS comments).
+ */
+export function getColorGroup(role: string): string {
+  if (role.startsWith("primary")) return "Primary";
+  if (role.startsWith("secondary")) return "Secondary";
+  if (role.startsWith("tertiary")) return "Tertiary";
+  if (role.startsWith("surface")) return "Surface";
+  if (role.startsWith("background")) return "Background";
+  if (role.startsWith("error")) return "Error";
+  if (role.startsWith("outline")) return "Outline";
+  if (role.startsWith("inverse")) return "Inverse";
+  if (role === "scrim" || role === "shadow-color") return "Utility";
+  return "Other";
+}
+
+/**
+ * Format a semantic value for CSS output.
+ * - "0" or "none" -> raw value
+ * - Quoted values like '"1"' -> strip quotes (raw value)
+ * - Numeric values starting with a digit (e.g., "150ms") -> raw value
+ * - Everything else -> var(--op-<value>) token reference
+ */
+export function formatSemanticValue(value: string, primitivesPrefix: string): string {
   // Raw values
   if (value === "0" || value === "none") {
     return value;
+  }
+
+  // Quoted raw values (e.g., '"1"' -> '1')
+  if (value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1);
   }
 
   // Numeric values starting with a digit (e.g., "150ms", "1.5")
@@ -176,21 +306,12 @@ Uses CSS light-dark() for reactive theming.`
     lines.push("");
     lines.push(`    /* ${category.displayName} */`);
 
-    // Sort keys for consistent output
-    const sortedKeys = Object.keys(tokens).sort((a, b) => {
-      // Custom sort order for common patterns
-      const order = ["none", "xs", "sm", "md", "base", "lg", "xl", "2xl", "3xl", "full"];
-      const aIdx = order.indexOf(a);
-      const bIdx = order.indexOf(b);
-      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
-      if (aIdx !== -1) return -1;
-      if (bIdx !== -1) return 1;
-      return a.localeCompare(b);
-    });
+    // Sort keys using category-aware sorting
+    const sortedKeys = sortSemanticKeys(tokens, category.key);
 
     for (const key of sortedKeys) {
       const value = tokens[key];
-      const cssVar = `--${prefixes.semantic}-${category.key}-${key}`;
+      const cssVar = `--${prefixes.semantic}-${category.prefix}-${key}`;
       const cssValue = formatSemanticValue(value, prefixes.primitives);
       lines.push(`    ${cssVar}: ${cssValue};`);
     }
