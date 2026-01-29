@@ -135,11 +135,11 @@ export class ColorSchemeViewer extends LitElement {
     }
 
     .scheme-container--light {
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     }
 
     .scheme-container--dark {
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.06);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     }
 
     .scheme-header {
@@ -1489,7 +1489,7 @@ export class ColorSchemeViewer extends LitElement {
           <!-- Light scheme -->
           <div
             class="scheme-container scheme-container--light"
-            style="background:${this._lightColors.surfaceContainerLow};color:${this._lightColors.onSurface}"
+            style="background:${this._lightColors.surface};color:${this._lightColors.onSurface};border:1px solid ${this._lightColors.outlineVariant}"
           >
             <div class="scheme-header">
               <span class="scheme-header-icon" aria-hidden="true">${sunIcon}</span>
@@ -1501,7 +1501,7 @@ export class ColorSchemeViewer extends LitElement {
           <!-- Dark scheme -->
           <div
             class="scheme-container scheme-container--dark"
-            style="background:${this._darkColors.surfaceContainerLow};color:${this._darkColors.onSurface}"
+            style="background:${this._darkColors.surface};color:${this._darkColors.onSurface};border:1px solid ${this._darkColors.outlineVariant}"
           >
             <div class="scheme-header">
               <span class="scheme-header-icon" aria-hidden="true">${moonIcon}</span>
