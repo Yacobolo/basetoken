@@ -1,39 +1,50 @@
-import { LitElement, html, css } from "lit";
+import { LitElement, html, css, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
   generateScheme,
+  generateVariantPreviews,
   isValidHex,
   SCHEME_VARIANTS,
+  VARIANT_LABELS,
+  COLOR_FORMATS,
   type SchemeColors,
   type SchemeVariant,
+  type VariantPreview,
+  type ColorFormat,
 } from "./theme-generator.js";
 
 /**
  * <color-scheme-viewer>
  *
- * Interactive Material Design 3 color scheme visualizer.
- * Provides a color picker, scheme variant selector, and light/dark toggle.
- * Generates and displays all scheme colors live.
+ * Visual configurator for the design-tokens CLI.
+ * Self-themed: the entire UI uses the generated M3 tokens.
  */
 @customElement("color-scheme-viewer")
 export class ColorSchemeViewer extends LitElement {
   @property({ type: String }) seed = "#769CDF";
+
   @state() private _variant: SchemeVariant = "tonal-spot";
   @state() private _isDark = false;
   @state() private _colors: SchemeColors | null = null;
   @state() private _hexInput = "#769CDF";
+  @state() private _format: ColorFormat = "oklch";
+  @state() private _outputDir = "./tokens";
+  @state() private _variantPreviews: VariantPreview[] = [];
+  @state() private _copiedCommand = false;
+  @state() private _copiedSwatch = "";
+
+  // ────────────────────────────────────────────
+  //  Styles — self-themed via CSS custom properties
+  // ────────────────────────────────────────────
 
   static styles = css`
     :host {
       display: block;
-      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      --page-bg: #f5f5f5;
-      --page-text: #1d1b20;
-    }
-
-    :host([dark]) {
-      --page-bg: #1c1b1f;
-      --page-text: #e6e1e5;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.5;
+      color: var(--on-surface, #1d1b20);
+      --transition-color: background-color 0.2s ease, color 0.2s ease,
+        border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
     *,
@@ -42,234 +53,495 @@ export class ColorSchemeViewer extends LitElement {
       box-sizing: border-box;
     }
 
-    /* ─── Controls ─── */
-    .controls {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
-      margin-bottom: 32px;
-      padding: 20px 24px;
-      background: var(--page-bg);
-      border-radius: 16px;
-      border: 1px solid color-mix(in srgb, var(--page-text) 12%, transparent);
-    }
-
-    .control-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .control-group label {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--page-text);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .color-picker-wrapper {
-      position: relative;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    input[type="color"] {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 48px;
-      height: 48px;
-      border: 2px solid color-mix(in srgb, var(--page-text) 20%, transparent);
-      border-radius: 12px;
-      cursor: pointer;
-      padding: 2px;
-      background: transparent;
-    }
-
-    input[type="color"]::-webkit-color-swatch-wrapper {
-      padding: 0;
-    }
-
-    input[type="color"]::-webkit-color-swatch {
-      border: none;
-      border-radius: 8px;
-    }
-
-    input[type="text"] {
-      width: 90px;
-      padding: 8px 10px;
-      border: 1px solid color-mix(in srgb, var(--page-text) 20%, transparent);
-      border-radius: 8px;
-      font-family: "SF Mono", "Fira Code", monospace;
-      font-size: 14px;
-      background: var(--page-bg);
-      color: var(--page-text);
-    }
-
-    input[type="text"]:focus {
-      outline: 2px solid var(--s-primary, #6750a4);
-      outline-offset: 1px;
-    }
-
-    select {
-      padding: 8px 12px;
-      border: 1px solid color-mix(in srgb, var(--page-text) 20%, transparent);
-      border-radius: 8px;
-      font-size: 14px;
-      background: var(--page-bg);
-      color: var(--page-text);
-      cursor: pointer;
-      text-transform: capitalize;
-    }
-
-    .toggle {
-      position: relative;
-      width: 52px;
-      height: 28px;
-      background: color-mix(in srgb, var(--page-text) 20%, transparent);
-      border-radius: 14px;
-      cursor: pointer;
-      border: none;
-      padding: 0;
-      transition: background 0.2s;
-    }
-
-    .toggle[aria-checked="true"] {
-      background: var(--s-primary, #6750a4);
-    }
-
-    .toggle::after {
-      content: "";
-      position: absolute;
-      top: 3px;
-      left: 3px;
-      width: 22px;
-      height: 22px;
-      background: white;
-      border-radius: 50%;
-      transition: transform 0.2s;
-    }
-
-    .toggle[aria-checked="true"]::after {
-      transform: translateX(24px);
-    }
-
-    .toggle-label {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--page-text);
-      min-width: 36px;
-    }
-
-    .spacer {
-      flex: 1;
-    }
-
-    /* ─── Heading ─── */
-    h1 {
-      font-weight: 500;
-      font-size: 24px;
-      margin: 0 0 24px;
-      color: var(--page-text);
-    }
-
-    /* ─── Scheme Grid ─── */
-    .main-container {
+    /* ─── Two-column layout ─── */
+    .layout {
       display: grid;
-      grid-template-columns: repeat(3, 1fr) 250px;
-      gap: 24px;
-      max-width: 1100px;
+      grid-template-columns: 1fr 380px;
+      gap: 32px;
+      align-items: start;
     }
 
-    .stack {
+    /* ─── Left: Swatch preview ─── */
+    .preview {
+      min-width: 0;
+    }
+
+    .preview-header {
       display: flex;
-      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .preview-header h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--on-surface, #1d1b20);
+    }
+
+    .mode-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      background: var(--secondary-container, #e0e0e0);
+      color: var(--on-secondary-container, #333);
+      transition: var(--transition-color);
+    }
+
+    /* ─── Swatch grid ─── */
+    .scheme-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      border-radius: 16px;
+      overflow: hidden;
     }
 
     .swatch {
-      padding: 12px 16px;
-      min-height: 60px;
+      padding: 12px 14px;
+      min-height: 72px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      font-size: 14px;
-      transition: background-color 0.15s, color 0.15s;
+      cursor: pointer;
+      position: relative;
+      transition: var(--transition-color);
     }
 
-    .swatch .token-name {
-      font-weight: 500;
-    }
-
-    .swatch .hex-value {
-      font-family: "SF Mono", "Fira Code", monospace;
-      font-size: 11px;
-      opacity: 0.8;
+    .swatch:hover {
+      opacity: 0.92;
     }
 
     .swatch.large {
-      min-height: 100px;
+      min-height: 96px;
     }
 
-    /* Left section */
-    .left-content {
-      grid-column: span 3;
+    .swatch .token-name {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    .swatch .hex-value {
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 11px;
+      opacity: 0.75;
+    }
+
+    .swatch .copied-indicator {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      pointer-events: none;
+      animation: fade-out 1s ease forwards;
+    }
+
+    @keyframes fade-out {
+      0% {
+        opacity: 1;
+      }
+      70% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
+      }
+    }
+
+    /* Surface section spans full width */
+    .section-label {
+      grid-column: 1 / -1;
+      padding: 20px 14px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: var(--surface, #fafafa);
+      color: var(--on-surface-variant, #666);
+      transition: var(--transition-color);
+    }
+
+    .span-full {
+      grid-column: 1 / -1;
+    }
+
+    .surface-row {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+    }
+
+    .surface-row.five {
+      grid-template-columns: repeat(5, 1fr);
+    }
+
+    .surface-row.four {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .surface-row.two {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    /* ─── Right: Sidebar configurator ─── */
+    .sidebar {
+      position: sticky;
+      top: 24px;
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 0;
+      background: var(--surface-container, #f0f0f0);
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid var(--outline-variant, #ddd);
+      transition: var(--transition-color);
     }
 
-    .row {
+    .sidebar-section {
+      padding: 20px;
+      border-bottom: 1px solid var(--outline-variant, #ddd);
+      transition: var(--transition-color);
+    }
+
+    .sidebar-section:last-child {
+      border-bottom: none;
+    }
+
+    .sidebar-section h3 {
+      margin: 0 0 12px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--on-surface-variant, #666);
+      transition: var(--transition-color);
+    }
+
+    /* ─── Hex seed input ─── */
+    .seed-input-group {
       display: flex;
-      width: 100%;
+      align-items: stretch;
+      gap: 0;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid var(--outline-variant, #ddd);
+      transition: var(--transition-color);
     }
 
-    .row > div {
+    .seed-input-group:focus-within {
+      border-color: var(--primary, #6750a4);
+    }
+
+    .seed-swatch {
+      width: 52px;
+      flex-shrink: 0;
+      transition: background-color 0.2s ease;
+    }
+
+    .seed-input {
       flex: 1;
+      border: none;
+      padding: 12px 14px;
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      background: var(--surface-container-high, #e8e8e8);
+      color: var(--on-surface, #1d1b20);
+      outline: none;
+      transition: var(--transition-color);
     }
 
-    /* Surface height */
-    .surface-row .swatch {
-      min-height: 160px;
+    .seed-input::placeholder {
+      color: var(--on-surface-variant, #666);
+      opacity: 0.5;
     }
 
-    /* Utility row */
-    .utility-row {
+    .seed-error {
+      font-size: 12px;
+      color: var(--error, #b3261e);
+      margin-top: 6px;
+      min-height: 18px;
+    }
+
+    /* ─── Mode toggle (light/dark) ─── */
+    .mode-toggle {
+      display: flex;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid var(--outline-variant, #ddd);
+      transition: var(--transition-color);
+    }
+
+    .mode-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      transition: var(--transition-color);
+    }
+
+    .mode-btn .icon {
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .mode-btn.active {
+      background: var(--primary, #6750a4);
+      color: var(--on-primary, #fff);
+    }
+
+    .mode-btn:not(.active) {
+      background: var(--surface-container-high, #e8e8e8);
+      color: var(--on-surface-variant, #666);
+    }
+
+    .mode-btn:not(.active):hover {
+      background: var(--surface-container-highest, #e0e0e0);
+    }
+
+    /* ─── Variant selector cards ─── */
+    .variant-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-      margin-top: 24px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
     }
 
-    .utility-row .swatch {
-      min-height: 60px;
-      font-weight: bold;
+    .variant-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 4px 8px;
+      border-radius: 12px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      background: var(--surface-container-high, #e8e8e8);
+      transition: var(--transition-color);
     }
 
-    /* Responsive */
-    @media (max-width: 900px) {
-      .main-container {
+    .variant-card:hover {
+      background: var(--surface-container-highest, #e0e0e0);
+    }
+
+    .variant-card.active {
+      border-color: var(--primary, #6750a4);
+      background: var(--primary-container, #eaddff);
+    }
+
+    .variant-card .dots {
+      display: flex;
+      gap: 3px;
+    }
+
+    .variant-card .dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      transition: background-color 0.2s ease;
+    }
+
+    .variant-card .name {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: var(--on-surface-variant, #666);
+      text-align: center;
+      line-height: 1.2;
+      transition: var(--transition-color);
+    }
+
+    .variant-card.active .name {
+      color: var(--on-primary-container, #333);
+    }
+
+    /* ─── Format segmented control ─── */
+    .segmented {
+      display: flex;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid var(--outline-variant, #ddd);
+      transition: var(--transition-color);
+    }
+
+    .seg-btn {
+      flex: 1;
+      padding: 8px 4px;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      letter-spacing: 0.3px;
+      transition: var(--transition-color);
+    }
+
+    .seg-btn.active {
+      background: var(--primary, #6750a4);
+      color: var(--on-primary, #fff);
+    }
+
+    .seg-btn:not(.active) {
+      background: var(--surface-container-high, #e8e8e8);
+      color: var(--on-surface-variant, #666);
+    }
+
+    .seg-btn:not(.active):hover {
+      background: var(--surface-container-highest, #e0e0e0);
+    }
+
+    /* ─── Output dir input ─── */
+    .dir-input {
+      width: 100%;
+      border: 2px solid var(--outline-variant, #ddd);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 13px;
+      background: var(--surface-container-high, #e8e8e8);
+      color: var(--on-surface, #1d1b20);
+      outline: none;
+      transition: var(--transition-color);
+    }
+
+    .dir-input:focus {
+      border-color: var(--primary, #6750a4);
+    }
+
+    /* ─── CLI command block ─── */
+    .command-block {
+      position: relative;
+      background: var(--surface-container-highest, #e0e0e0);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: var(--transition-color);
+    }
+
+    .command-code {
+      display: block;
+      padding: 14px 16px;
+      padding-right: 48px;
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--on-surface, #1d1b20);
+      white-space: pre-wrap;
+      word-break: break-all;
+      transition: var(--transition-color);
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--primary-container, #eaddff);
+      color: var(--on-primary-container, #333);
+      font-size: 14px;
+      transition: var(--transition-color);
+    }
+
+    .copy-btn:hover {
+      background: var(--primary, #6750a4);
+      color: var(--on-primary, #fff);
+    }
+
+    .copy-btn.copied {
+      background: var(--tertiary-container, #e0e0e0);
+      color: var(--on-tertiary-container, #333);
+    }
+
+    /* ─── File tree ─── */
+    .file-tree {
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      color: var(--on-surface-variant, #666);
+      padding: 4px 0;
+      transition: var(--transition-color);
+    }
+
+    .file-tree .dir {
+      color: var(--primary, #6750a4);
+      font-weight: 600;
+      transition: var(--transition-color);
+    }
+
+    .file-tree .file {
+      color: var(--on-surface, #1d1b20);
+      transition: var(--transition-color);
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 960px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+        order: -1;
+      }
+
+      .scheme-grid {
         grid-template-columns: repeat(2, 1fr);
       }
-      .left-content {
-        grid-column: span 2;
+
+      .surface-row.five {
+        grid-template-columns: repeat(3, 1fr);
       }
     }
 
     @media (max-width: 600px) {
-      .main-container {
+      .scheme-grid {
         grid-template-columns: 1fr;
       }
-      .left-content {
-        grid-column: span 1;
+
+      .surface-row,
+      .surface-row.five,
+      .surface-row.four,
+      .surface-row.two {
+        grid-template-columns: 1fr;
       }
-      .controls {
-        flex-direction: column;
-        align-items: flex-start;
+
+      .variant-grid {
+        grid-template-columns: repeat(4, 1fr);
       }
     }
   `;
+
+  // ────────────────────────────────────────────
+  //  Lifecycle
+  // ────────────────────────────────────────────
 
   connectedCallback() {
     super.connectedCallback();
@@ -284,14 +556,65 @@ export class ColorSchemeViewer extends LitElement {
     }
   }
 
+  // ────────────────────────────────────────────
+  //  Core logic
+  // ────────────────────────────────────────────
+
   private _regenerate() {
     if (!isValidHex(this._hexInput)) return;
-    this._colors = generateScheme(
-      this._hexInput,
-      this._variant,
-      this._isDark
-    );
-    // Update host attribute for external styling
+
+    const hex = this._hexInput.startsWith("#")
+      ? this._hexInput.toUpperCase()
+      : `#${this._hexInput.toUpperCase()}`;
+
+    this._colors = generateScheme(hex, this._variant, this._isDark);
+    this._variantPreviews = generateVariantPreviews(hex, this._isDark);
+
+    // Apply M3 tokens as CSS custom properties on the host for self-theming
+    if (this._colors) {
+      const c = this._colors;
+      const props: Record<string, string> = {
+        "--primary": c.primary,
+        "--on-primary": c.onPrimary,
+        "--primary-container": c.primaryContainer,
+        "--on-primary-container": c.onPrimaryContainer,
+        "--secondary": c.secondary,
+        "--on-secondary": c.onSecondary,
+        "--secondary-container": c.secondaryContainer,
+        "--on-secondary-container": c.onSecondaryContainer,
+        "--tertiary": c.tertiary,
+        "--on-tertiary": c.onTertiary,
+        "--tertiary-container": c.tertiaryContainer,
+        "--on-tertiary-container": c.onTertiaryContainer,
+        "--error": c.error,
+        "--on-error": c.onError,
+        "--error-container": c.errorContainer,
+        "--on-error-container": c.onErrorContainer,
+        "--surface": c.surface,
+        "--on-surface": c.onSurface,
+        "--surface-variant": c.surfaceVariant,
+        "--on-surface-variant": c.onSurfaceVariant,
+        "--surface-dim": c.surfaceDim,
+        "--surface-bright": c.surfaceBright,
+        "--surface-container-lowest": c.surfaceContainerLowest,
+        "--surface-container-low": c.surfaceContainerLow,
+        "--surface-container": c.surfaceContainer,
+        "--surface-container-high": c.surfaceContainerHigh,
+        "--surface-container-highest": c.surfaceContainerHighest,
+        "--outline": c.outline,
+        "--outline-variant": c.outlineVariant,
+        "--inverse-surface": c.inverseSurface,
+        "--inverse-on-surface": c.inverseOnSurface,
+        "--inverse-primary": c.inversePrimary,
+        "--shadow": c.shadow,
+        "--scrim": c.scrim,
+      };
+      for (const [name, value] of Object.entries(props)) {
+        this.style.setProperty(name, value);
+      }
+    }
+
+    // Sync dark attribute for external styling (body)
     if (this._isDark) {
       this.setAttribute("dark", "");
     } else {
@@ -299,293 +622,539 @@ export class ColorSchemeViewer extends LitElement {
     }
   }
 
-  private _onColorPick(e: Event) {
-    const val = (e.target as HTMLInputElement).value;
-    this._hexInput = val.toUpperCase();
-    this.seed = this._hexInput;
-    this._regenerate();
-  }
+  // ────────────────────────────────────────────
+  //  Event handlers
+  // ────────────────────────────────────────────
 
   private _onHexInput(e: Event) {
-    const val = (e.target as HTMLInputElement).value;
-    this._hexInput = val;
-    if (isValidHex(val)) {
-      this.seed = val.startsWith("#") ? val.toUpperCase() : `#${val.toUpperCase()}`;
+    const raw = (e.target as HTMLInputElement).value;
+    this._hexInput = raw;
+    if (isValidHex(raw)) {
+      this.seed = raw.startsWith("#")
+        ? raw.toUpperCase()
+        : `#${raw.toUpperCase()}`;
       this._regenerate();
     }
   }
 
-  private _onVariantChange(e: Event) {
-    this._variant = (e.target as HTMLSelectElement).value as SchemeVariant;
+  private _onHexBlur() {
+    // Normalize on blur: ensure # prefix and uppercase
+    if (isValidHex(this._hexInput)) {
+      this._hexInput = this._hexInput.startsWith("#")
+        ? this._hexInput.toUpperCase()
+        : `#${this._hexInput.toUpperCase()}`;
+    }
+  }
+
+  private _selectVariant(v: SchemeVariant) {
+    this._variant = v;
     this._regenerate();
   }
 
-  private _onToggleDark() {
-    this._isDark = !this._isDark;
+  private _setMode(dark: boolean) {
+    this._isDark = dark;
     this._regenerate();
   }
 
-  /** Render a single swatch cell */
+  private _selectFormat(f: ColorFormat) {
+    this._format = f;
+  }
+
+  private _onDirInput(e: Event) {
+    this._outputDir = (e.target as HTMLInputElement).value || "./tokens";
+  }
+
+  private async _copyCommand() {
+    try {
+      await navigator.clipboard.writeText(this._buildCommand());
+      this._copiedCommand = true;
+      setTimeout(() => (this._copiedCommand = false), 1500);
+    } catch {
+      // fallback: select text
+    }
+  }
+
+  private async _copySwatchHex(key: string, hex: string) {
+    try {
+      await navigator.clipboard.writeText(hex);
+      this._copiedSwatch = key;
+      setTimeout(() => (this._copiedSwatch = ""), 1000);
+    } catch {
+      // ignore
+    }
+  }
+
+  // ────────────────────────────────────────────
+  //  Derived values
+  // ────────────────────────────────────────────
+
+  private _buildCommand(): string {
+    const parts = [`bun src/index.ts -s "${this.seed}"`];
+    if (this._format !== "oklch") parts.push(`-f ${this._format}`);
+    if (this._variant !== "tonal-spot") parts.push(`--scheme ${this._variant}`);
+    if (this._outputDir !== "./tokens") parts.push(`-o ${this._outputDir}`);
+    return parts.join(" ");
+  }
+
+  // ────────────────────────────────────────────
+  //  Swatch helpers
+  // ────────────────────────────────────────────
+
   private _swatch(
     name: string,
     bgKey: keyof SchemeColors,
     fgKey: keyof SchemeColors,
     large = false
   ) {
-    if (!this._colors) return html``;
+    if (!this._colors) return nothing;
     const bg = this._colors[bgKey];
     const fg = this._colors[fgKey];
+    const isCopied = this._copiedSwatch === bgKey;
     return html`
       <div
         class="swatch ${large ? "large" : ""}"
         style="background:${bg};color:${fg}"
+        @click=${() => this._copySwatchHex(bgKey, bg)}
+        title="Click to copy ${bg}"
       >
         <span class="token-name">${name}</span>
         <span class="hex-value">${bg}</span>
+        ${isCopied
+          ? html`<span class="copied-indicator">Copied</span>`
+          : nothing}
       </div>
     `;
   }
 
-  /** Render a surface swatch (uses onSurface for text) */
   private _surfaceSwatch(name: string, bgKey: keyof SchemeColors) {
-    if (!this._colors) return html``;
+    if (!this._colors) return nothing;
     const bg = this._colors[bgKey];
     const fg = this._colors.onSurface;
+    const isCopied = this._copiedSwatch === bgKey;
     return html`
-      <div class="swatch" style="background:${bg};color:${fg}">
+      <div
+        class="swatch"
+        style="background:${bg};color:${fg}"
+        @click=${() => this._copySwatchHex(bgKey, bg)}
+        title="Click to copy ${bg}"
+      >
         <span class="token-name">${name}</span>
         <span class="hex-value">${bg}</span>
+        ${isCopied
+          ? html`<span class="copied-indicator">Copied</span>`
+          : nothing}
       </div>
     `;
   }
+
+  // ────────────────────────────────────────────
+  //  Render
+  // ────────────────────────────────────────────
 
   render() {
     if (!this._colors) return html`<p>Loading...</p>`;
     const c = this._colors;
 
     return html`
-      <div class="controls" style="--s-primary:${c.primary}">
-        <div class="control-group">
-          <label>Seed</label>
-          <div class="color-picker-wrapper">
-            <input
-              type="color"
-              .value=${this.seed.toLowerCase()}
-              @input=${this._onColorPick}
-            />
-            <input
-              type="text"
-              .value=${this._hexInput}
-              @input=${this._onHexInput}
-              placeholder="#769CDF"
-              spellcheck="false"
-            />
-          </div>
-        </div>
-
-        <div class="control-group">
-          <label>Variant</label>
-          <select @change=${this._onVariantChange}>
-            ${SCHEME_VARIANTS.map(
-              (v) =>
-                html`<option value=${v} ?selected=${v === this._variant}>
-                  ${v}
-                </option>`
-            )}
-          </select>
-        </div>
-
-        <div class="spacer"></div>
-
-        <div class="control-group">
-          <span class="toggle-label">${this._isDark ? "Dark" : "Light"}</span>
-          <button
-            class="toggle"
-            role="switch"
-            aria-checked=${this._isDark ? "true" : "false"}
-            @click=${this._onToggleDark}
-          ></button>
-        </div>
-      </div>
-
-      <h1>${this._isDark ? "Dark" : "Light"} Scheme</h1>
-
-      <div class="main-container">
-        <!-- Primary -->
-        <div class="stack">
-          ${this._swatch("Primary", "primary", "onPrimary", true)}
-          ${this._swatch("On Primary", "onPrimary", "primary")}
-          ${this._swatch(
-            "Primary Container",
-            "primaryContainer",
-            "onPrimaryContainer",
-            true
-          )}
-          ${this._swatch(
-            "On Primary Container",
-            "onPrimaryContainer",
-            "primaryContainer"
-          )}
-        </div>
-
-        <!-- Secondary -->
-        <div class="stack">
-          ${this._swatch("Secondary", "secondary", "onSecondary", true)}
-          ${this._swatch("On Secondary", "onSecondary", "secondary")}
-          ${this._swatch(
-            "Secondary Container",
-            "secondaryContainer",
-            "onSecondaryContainer",
-            true
-          )}
-          ${this._swatch(
-            "On Secondary Container",
-            "onSecondaryContainer",
-            "secondaryContainer"
-          )}
-        </div>
-
-        <!-- Tertiary -->
-        <div class="stack">
-          ${this._swatch("Tertiary", "tertiary", "onTertiary", true)}
-          ${this._swatch("On Tertiary", "onTertiary", "tertiary")}
-          ${this._swatch(
-            "Tertiary Container",
-            "tertiaryContainer",
-            "onTertiaryContainer",
-            true
-          )}
-          ${this._swatch(
-            "On Tertiary Container",
-            "onTertiaryContainer",
-            "tertiaryContainer"
-          )}
-        </div>
-
-        <!-- Error -->
-        <div class="stack">
-          ${this._swatch("Error", "error", "onError", true)}
-          ${this._swatch("On Error", "onError", "error")}
-          ${this._swatch(
-            "Error Container",
-            "errorContainer",
-            "onErrorContainer",
-            true
-          )}
-          ${this._swatch(
-            "On Error Container",
-            "onErrorContainer",
-            "errorContainer"
-          )}
-        </div>
-
-        <!-- Surface section -->
-        <div class="left-content">
-          <!-- Surface Dim / Surface / Surface Bright -->
-          <div class="row surface-row">
-            ${this._surfaceSwatch("Surface Dim", "surfaceDim")}
-            ${this._surfaceSwatch("Surface", "surface")}
-            ${this._surfaceSwatch("Surface Bright", "surfaceBright")}
+      <div class="layout">
+        <!-- ═══ LEFT: Color scheme preview ═══ -->
+        <div class="preview">
+          <div class="preview-header">
+            <h2>Color Scheme</h2>
+            <span class="mode-badge">
+              ${this._isDark ? "\u{263E}" : "\u{2600}"}
+              ${this._isDark ? "Dark" : "Light"}
+            </span>
           </div>
 
-          <!-- Surface Container hierarchy -->
-          <div class="row surface-row">
-            ${this._surfaceSwatch(
-              "Surf. Container Lowest",
-              "surfaceContainerLowest"
+          <div class="scheme-grid">
+            <!-- Primary family -->
+            <div class="section-label">Primary</div>
+            ${this._swatch("Primary", "primary", "onPrimary", true)}
+            ${this._swatch("On Primary", "onPrimary", "primary")}
+            ${this._swatch(
+              "Primary Container",
+              "primaryContainer",
+              "onPrimaryContainer",
+              true
             )}
-            ${this._surfaceSwatch(
-              "Surf. Container Low",
-              "surfaceContainerLow"
+            ${this._swatch(
+              "On Primary Container",
+              "onPrimaryContainer",
+              "primaryContainer"
             )}
-            ${this._surfaceSwatch("Surf. Container", "surfaceContainer")}
-            ${this._surfaceSwatch(
-              "Surf. Container High",
-              "surfaceContainerHigh"
-            )}
-            ${this._surfaceSwatch(
-              "Surf. Container Highest",
-              "surfaceContainerHighest"
-            )}
-          </div>
 
-          <!-- On Surface / Outline row -->
-          <div class="row">
-            <div
-              class="swatch"
-              style="background:${c.onSurface};color:${c.surface}"
-            >
-              <span class="token-name">On Surface</span>
-              <span class="hex-value">${c.onSurface}</span>
-            </div>
-            <div
-              class="swatch"
-              style="background:${c.onSurfaceVariant};color:${c.surface}"
-            >
-              <span class="token-name">On Surface Var.</span>
-              <span class="hex-value">${c.onSurfaceVariant}</span>
-            </div>
-            <div
-              class="swatch"
-              style="background:${c.outline};color:${c.surface}"
-            >
-              <span class="token-name">Outline</span>
-              <span class="hex-value">${c.outline}</span>
-            </div>
-            <div
-              class="swatch"
-              style="background:${c.outlineVariant};color:${c.onSurfaceVariant}"
-            >
-              <span class="token-name">Outline Variant</span>
-              <span class="hex-value">${c.outlineVariant}</span>
-            </div>
-          </div>
-        </div>
+            <!-- Secondary family -->
+            <div class="section-label">Secondary</div>
+            ${this._swatch("Secondary", "secondary", "onSecondary", true)}
+            ${this._swatch("On Secondary", "onSecondary", "secondary")}
+            ${this._swatch(
+              "Secondary Container",
+              "secondaryContainer",
+              "onSecondaryContainer",
+              true
+            )}
+            ${this._swatch(
+              "On Secondary Container",
+              "onSecondaryContainer",
+              "secondaryContainer"
+            )}
 
-        <!-- Right: Inverse + Utility -->
-        <div class="right-bottom">
-          <div class="stack">
+            <!-- Tertiary family -->
+            <div class="section-label">Tertiary</div>
+            ${this._swatch("Tertiary", "tertiary", "onTertiary", true)}
+            ${this._swatch("On Tertiary", "onTertiary", "tertiary")}
+            ${this._swatch(
+              "Tertiary Container",
+              "tertiaryContainer",
+              "onTertiaryContainer",
+              true
+            )}
+            ${this._swatch(
+              "On Tertiary Container",
+              "onTertiaryContainer",
+              "tertiaryContainer"
+            )}
+
+            <!-- Error family -->
+            <div class="section-label">Error</div>
+            ${this._swatch("Error", "error", "onError", true)}
+            ${this._swatch("On Error", "onError", "error")}
+            ${this._swatch(
+              "Error Container",
+              "errorContainer",
+              "onErrorContainer",
+              true
+            )}
+            ${this._swatch(
+              "On Error Container",
+              "onErrorContainer",
+              "errorContainer"
+            )}
+
+            <!-- Surface hierarchy -->
+            <div class="section-label">Surface</div>
+            <div class="surface-row">
+              ${this._surfaceSwatch("Surface Dim", "surfaceDim")}
+              ${this._surfaceSwatch("Surface", "surface")}
+              ${this._surfaceSwatch("Surface Bright", "surfaceBright")}
+            </div>
+
+            <div class="surface-row five">
+              ${this._surfaceSwatch("Container Lowest", "surfaceContainerLowest")}
+              ${this._surfaceSwatch("Container Low", "surfaceContainerLow")}
+              ${this._surfaceSwatch("Container", "surfaceContainer")}
+              ${this._surfaceSwatch("Container High", "surfaceContainerHigh")}
+              ${this._surfaceSwatch(
+                "Container Highest",
+                "surfaceContainerHighest"
+              )}
+            </div>
+
+            <!-- On Surface / Outline -->
+            <div class="section-label">On Surface & Outline</div>
+            <div class="surface-row four">
+              <div
+                class="swatch"
+                style="background:${c.onSurface};color:${c.surface}"
+                @click=${() => this._copySwatchHex("onSurface", c.onSurface)}
+                title="Click to copy ${c.onSurface}"
+              >
+                <span class="token-name">On Surface</span>
+                <span class="hex-value">${c.onSurface}</span>
+                ${this._copiedSwatch === "onSurface"
+                  ? html`<span class="copied-indicator">Copied</span>`
+                  : nothing}
+              </div>
+              <div
+                class="swatch"
+                style="background:${c.onSurfaceVariant};color:${c.surface}"
+                @click=${() =>
+                  this._copySwatchHex("onSurfaceVariant", c.onSurfaceVariant)}
+                title="Click to copy ${c.onSurfaceVariant}"
+              >
+                <span class="token-name">On Surface Variant</span>
+                <span class="hex-value">${c.onSurfaceVariant}</span>
+                ${this._copiedSwatch === "onSurfaceVariant"
+                  ? html`<span class="copied-indicator">Copied</span>`
+                  : nothing}
+              </div>
+              <div
+                class="swatch"
+                style="background:${c.outline};color:${c.surface}"
+                @click=${() => this._copySwatchHex("outline", c.outline)}
+                title="Click to copy ${c.outline}"
+              >
+                <span class="token-name">Outline</span>
+                <span class="hex-value">${c.outline}</span>
+                ${this._copiedSwatch === "outline"
+                  ? html`<span class="copied-indicator">Copied</span>`
+                  : nothing}
+              </div>
+              <div
+                class="swatch"
+                style="background:${c.outlineVariant};color:${c.onSurfaceVariant}"
+                @click=${() =>
+                  this._copySwatchHex("outlineVariant", c.outlineVariant)}
+                title="Click to copy ${c.outlineVariant}"
+              >
+                <span class="token-name">Outline Variant</span>
+                <span class="hex-value">${c.outlineVariant}</span>
+                ${this._copiedSwatch === "outlineVariant"
+                  ? html`<span class="copied-indicator">Copied</span>`
+                  : nothing}
+              </div>
+            </div>
+
+            <!-- Inverse + Utility -->
+            <div class="section-label">Inverse & Utility</div>
             <div
               class="swatch"
-              style="background:${c.inverseSurface};color:${c.inverseOnSurface};min-height:180px"
+              style="background:${c.inverseSurface};color:${c.inverseOnSurface}"
+              @click=${() =>
+                this._copySwatchHex("inverseSurface", c.inverseSurface)}
+              title="Click to copy ${c.inverseSurface}"
             >
               <span class="token-name">Inverse Surface</span>
               <span class="hex-value">${c.inverseSurface}</span>
+              ${this._copiedSwatch === "inverseSurface"
+                ? html`<span class="copied-indicator">Copied</span>`
+                : nothing}
             </div>
             <div
               class="swatch"
               style="background:${c.inverseOnSurface};color:${c.inverseSurface}"
+              @click=${() =>
+                this._copySwatchHex("inverseOnSurface", c.inverseOnSurface)}
+              title="Click to copy ${c.inverseOnSurface}"
             >
               <span class="token-name">Inverse On Surface</span>
               <span class="hex-value">${c.inverseOnSurface}</span>
+              ${this._copiedSwatch === "inverseOnSurface"
+                ? html`<span class="copied-indicator">Copied</span>`
+                : nothing}
             </div>
             <div
               class="swatch"
               style="background:${c.inversePrimary};color:${c.primary}"
+              @click=${() =>
+                this._copySwatchHex("inversePrimary", c.inversePrimary)}
+              title="Click to copy ${c.inversePrimary}"
             >
               <span class="token-name">Inverse Primary</span>
               <span class="hex-value">${c.inversePrimary}</span>
+              ${this._copiedSwatch === "inversePrimary"
+                ? html`<span class="copied-indicator">Copied</span>`
+                : nothing}
+            </div>
+            <div class="surface-row two">
+              <div
+                class="swatch"
+                style="background:${c.scrim};color:white"
+                @click=${() => this._copySwatchHex("scrim", c.scrim)}
+                title="Click to copy ${c.scrim}"
+              >
+                <span class="token-name">Scrim</span>
+                <span class="hex-value">${c.scrim}</span>
+                ${this._copiedSwatch === "scrim"
+                  ? html`<span class="copied-indicator">Copied</span>`
+                  : nothing}
+              </div>
+              <div
+                class="swatch"
+                style="background:${c.shadow};color:white"
+                @click=${() => this._copySwatchHex("shadow", c.shadow)}
+                title="Click to copy ${c.shadow}"
+              >
+                <span class="token-name">Shadow</span>
+                <span class="hex-value">${c.shadow}</span>
+                ${this._copiedSwatch === "shadow"
+                  ? html`<span class="copied-indicator">Copied</span>`
+                  : nothing}
+              </div>
             </div>
           </div>
-          <div class="utility-row">
-            <div
-              class="swatch"
-              style="background:${c.scrim};color:white"
-            >
-              <span class="token-name">Scrim</span>
-              <span class="hex-value">${c.scrim}</span>
+        </div>
+
+        <!-- ═══ RIGHT: Configurator sidebar ═══ -->
+        <div class="sidebar">
+          <!-- Seed color -->
+          <div class="sidebar-section">
+            <h3>Brand Color</h3>
+            <div class="seed-input-group">
+              <div
+                class="seed-swatch"
+                style="background:${isValidHex(this._hexInput)
+                  ? (this._hexInput.startsWith("#")
+                      ? this._hexInput
+                      : `#${this._hexInput}`)
+                  : "#ccc"}"
+              ></div>
+              <input
+                class="seed-input"
+                type="text"
+                .value=${this._hexInput}
+                @input=${this._onHexInput}
+                @blur=${this._onHexBlur}
+                placeholder="#769CDF"
+                spellcheck="false"
+                autocomplete="off"
+              />
             </div>
-            <div
-              class="swatch"
-              style="background:${c.shadow};color:white"
-            >
-              <span class="token-name">Shadow</span>
-              <span class="hex-value">${c.shadow}</span>
+            <div class="seed-error">
+              ${!isValidHex(this._hexInput) && this._hexInput.length > 1
+                ? "Enter a valid hex color"
+                : ""}
             </div>
+          </div>
+
+          <!-- Mode toggle -->
+          <div class="sidebar-section">
+            <h3>Appearance</h3>
+            <div class="mode-toggle">
+              <button
+                class="mode-btn ${!this._isDark ? "active" : ""}"
+                @click=${() => this._setMode(false)}
+              >
+                <span class="icon">\u{2600}\u{FE0F}</span> Light
+              </button>
+              <button
+                class="mode-btn ${this._isDark ? "active" : ""}"
+                @click=${() => this._setMode(true)}
+              >
+                <span class="icon">\u{263E}</span> Dark
+              </button>
+            </div>
+          </div>
+
+          <!-- Variant selector -->
+          <div class="sidebar-section">
+            <h3>Scheme Variant</h3>
+            <div class="variant-grid">
+              ${this._variantPreviews.map(
+                (p) => html`
+                  <div
+                    class="variant-card ${p.variant === this._variant
+                      ? "active"
+                      : ""}"
+                    @click=${() => this._selectVariant(p.variant)}
+                    title="${VARIANT_LABELS[p.variant]}"
+                  >
+                    <div class="dots">
+                      <div class="dot" style="background:${p.primary}"></div>
+                      <div class="dot" style="background:${p.secondary}"></div>
+                      <div class="dot" style="background:${p.tertiary}"></div>
+                    </div>
+                    <span class="name"
+                      >${VARIANT_LABELS[p.variant]}</span
+                    >
+                  </div>
+                `
+              )}
+            </div>
+          </div>
+
+          <!-- Color format -->
+          <div class="sidebar-section">
+            <h3>Color Format</h3>
+            <div class="segmented">
+              ${COLOR_FORMATS.map(
+                (f) => html`
+                  <button
+                    class="seg-btn ${f === this._format ? "active" : ""}"
+                    @click=${() => this._selectFormat(f)}
+                  >
+                    ${f}
+                  </button>
+                `
+              )}
+            </div>
+          </div>
+
+          <!-- Output directory -->
+          <div class="sidebar-section">
+            <h3>Output Directory</h3>
+            <input
+              class="dir-input"
+              type="text"
+              .value=${this._outputDir}
+              @input=${this._onDirInput}
+              placeholder="./tokens"
+              spellcheck="false"
+            />
+          </div>
+
+          <!-- CLI command -->
+          <div class="sidebar-section">
+            <h3>CLI Command</h3>
+            <div class="command-block">
+              <code class="command-code">${this._buildCommand()}</code>
+              <button
+                class="copy-btn ${this._copiedCommand ? "copied" : ""}"
+                @click=${this._copyCommand}
+                title="Copy command"
+              >
+                ${this._copiedCommand ? "\u{2713}" : "\u{2398}"}
+              </button>
+            </div>
+          </div>
+
+          <!-- File tree -->
+          <div class="sidebar-section">
+            <h3>Output Structure</h3>
+            <div class="file-tree">${this._renderFileTree()}</div>
           </div>
         </div>
       </div>
     `;
+  }
+
+  private _renderFileTree() {
+    const dir = this._outputDir.replace(/\/$/, "");
+    const lines = [
+      { text: `${dir}/`, isDir: true, indent: 0 },
+      { text: "index.css", isDir: false, indent: 1 },
+      { text: "semantic.css", isDir: false, indent: 1 },
+      { text: "app.css", isDir: false, indent: 1 },
+      { text: "material/", isDir: true, indent: 1 },
+      { text: "palettes.css", isDir: false, indent: 2 },
+      { text: "open-props/", isDir: true, indent: 1 },
+      { text: "borders.css", isDir: false, indent: 2 },
+      { text: "easings.css", isDir: false, indent: 2 },
+      { text: "fonts.css", isDir: false, indent: 2 },
+      { text: "shadows.css", isDir: false, indent: 2 },
+      { text: "sizes.css", isDir: false, indent: 2 },
+    ];
+
+    // Build tree connector chars
+    const getPrefix = (indent: number, idx: number) => {
+      if (indent === 0) return "";
+      // Look ahead to see if this is the last child at this indent level
+      const siblings = lines.filter(
+        (l, i) => i > idx && l.indent === indent && lines.slice(idx + 1, i).every((s) => s.indent >= indent)
+      );
+      // Check if any following lines are still children or siblings
+      let isLast = true;
+      for (let i = idx + 1; i < lines.length; i++) {
+        if (lines[i].indent < indent) break;
+        if (lines[i].indent === indent) {
+          isLast = false;
+          break;
+        }
+      }
+      const connector = isLast ? "\u{2514}\u{2500}\u{2500} " : "\u{251C}\u{2500}\u{2500} ";
+      const padding = "    ".repeat(indent - 1);
+      return padding + connector;
+    };
+
+    return html`${lines.map(
+      (line, idx) => html`
+        <div>
+          <span style="opacity:0.4">${getPrefix(line.indent, idx)}</span
+          ><span class="${line.isDir ? "dir" : "file"}">${line.text}</span>
+        </div>
+      `
+    )}`;
   }
 }
 

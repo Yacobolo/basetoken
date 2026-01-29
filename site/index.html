@@ -3,60 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Material Design 3 Color Scheme Viewer</title>
+    <title>Design Token Configurator</title>
+    <meta name="description" content="Visual configurator for Material Design 3 CSS design tokens. Pick a brand color, preview the scheme, and get the CLI command.">
     <style>
-        body {
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f5f5f5;
-            color: #1d1b20;
-            padding: 40px;
-            margin: 0;
-            transition: background-color 0.2s, color 0.2s;
+        :root {
+            --page-bg: #fef7ff;
+            --page-text: #1d1b20;
         }
 
-        body.dark {
-            background-color: #1c1b1f;
-            color: #e6e1e5;
+        .dark {
+            --page-bg: #141218;
+            --page-text: #e6e0e9;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--page-bg);
+            color: var(--page-text);
+            min-height: 100vh;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .page-shell {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 32px 40px;
         }
 
         .page-header {
-            max-width: 1100px;
-            margin: 0 0 32px;
+            margin-bottom: 32px;
         }
 
         .page-header h1 {
-            font-weight: 400;
-            font-size: 32px;
-            margin: 0 0 8px;
+            font-weight: 600;
+            font-size: 28px;
+            margin: 0 0 6px;
+            letter-spacing: -0.5px;
         }
 
         .page-header p {
             margin: 0;
-            opacity: 0.7;
+            opacity: 0.6;
             font-size: 15px;
+            line-height: 1.5;
         }
 
         @media (max-width: 600px) {
-            body { padding: 16px; }
+            .page-shell { padding: 16px; }
+            .page-header h1 { font-size: 22px; }
         }
     </style>
 </head>
 <body>
-    <div class="page-header">
-        <h1>Material Design 3 Color Scheme</h1>
-        <p>Pick a seed color to generate a full Material You color scheme in real time.</p>
-    </div>
+    <div class="page-shell">
+        <div class="page-header">
+            <h1>Design Token Configurator</h1>
+            <p>Configure your brand color and scheme variant, then copy the CLI command to generate CSS design tokens.</p>
+        </div>
 
-    <color-scheme-viewer seed="#769CDF"></color-scheme-viewer>
+        <color-scheme-viewer seed="#769CDF"></color-scheme-viewer>
+    </div>
 
     <script type="module" src="/src/color-scheme-viewer.ts"></script>
     <script>
         // Sync body dark class with the component's dark attribute
         const viewer = document.querySelector('color-scheme-viewer');
-        const observer = new MutationObserver(() => {
-            document.body.classList.toggle('dark', viewer.hasAttribute('dark'));
-        });
-        observer.observe(viewer, { attributes: true, attributeFilter: ['dark'] });
+        if (viewer) {
+            const observer = new MutationObserver(() => {
+                document.body.classList.toggle('dark', viewer.hasAttribute('dark'));
+            });
+            observer.observe(viewer, { attributes: true, attributeFilter: ['dark'] });
+        }
     </script>
 </body>
 </html>

@@ -34,6 +34,17 @@ export const SCHEME_VARIANTS: SchemeVariant[] = [
   "vibrant",
 ];
 
+/** Human-readable labels for each variant */
+export const VARIANT_LABELS: Record<SchemeVariant, string> = {
+  "tonal-spot": "Tonal Spot",
+  content: "Content",
+  expressive: "Expressive",
+  fidelity: "Fidelity",
+  monochrome: "Monochrome",
+  neutral: "Neutral",
+  vibrant: "Vibrant",
+};
+
 /** All color tokens we extract from a scheme */
 export interface SchemeColors {
   primary: string;
@@ -70,6 +81,16 @@ export interface SchemeColors {
   inversePrimary: string;
   shadow: string;
   scrim: string;
+}
+
+/** Subset of colors used for variant preview cards */
+export interface VariantPreview {
+  variant: SchemeVariant;
+  primary: string;
+  secondary: string;
+  tertiary: string;
+  surface: string;
+  onSurface: string;
 }
 
 // Map variant names to their constructor classes
@@ -129,7 +150,6 @@ function extractSchemeColors(scheme: any): SchemeColors {
 
 /**
  * Generate Material Design 3 scheme colors from a hex seed.
- * Returns colors for both light and dark modes.
  */
 export function generateScheme(
   seedHex: string,
@@ -145,7 +165,65 @@ export function generateScheme(
   return extractSchemeColors(scheme);
 }
 
+/**
+ * Generate lightweight preview colors for all variants (used by variant selector cards).
+ * Returns primary/secondary/tertiary/surface for each variant.
+ */
+export function generateVariantPreviews(
+  seedHex: string,
+  isDark: boolean = false
+): VariantPreview[] {
+  const normalized = seedHex.startsWith("#") ? seedHex : `#${seedHex}`;
+  const argb = argbFromHex(normalized);
+  const hct = Hct.fromInt(argb);
+  const hex = (val: number) => hexFromArgb(val).toUpperCase();
+
+  return SCHEME_VARIANTS.map((variant) => {
+    const Constructor = SCHEME_CONSTRUCTORS[variant];
+    const scheme = new Constructor(hct, isDark, 0.0);
+    return {
+      variant,
+      primary: hex(scheme.primary),
+      secondary: hex(scheme.secondary),
+      tertiary: hex(scheme.tertiary),
+      surface: hex(scheme.surfaceContainer),
+      onSurface: hex(scheme.onSurface),
+    };
+  });
+}
+
+/**
+ * Convert SchemeColors to a flat map of CSS custom property name -> value.
+ * Uses camelCase-to-kebab conversion: primaryContainer -> --primary-container
+ */
+export function schemeToCSSProperties(colors: SchemeColors): Record<string, string> {
+  const props: Record<string, string> = {};
+  for (const [key, value] of Object.entries(colors)) {
+    const cssName = `--${camelToKebab(key)}`;
+    props[cssName] = value;
+  }
+  return props;
+}
+
+/** Apply scheme colors as CSS custom properties on an element */
+export function applySchemeToElement(el: HTMLElement, colors: SchemeColors): void {
+  const props = schemeToCSSProperties(colors);
+  for (const [name, value] of Object.entries(props)) {
+    el.style.setProperty(name, value);
+  }
+}
+
+/** Convert camelCase to kebab-case */
+function camelToKebab(str: string): string {
+  return str.replace(/([A-Z])/g, "-$1").toLowerCase();
+}
+
 /** Validate a hex color string */
 export function isValidHex(hex: string): boolean {
   return /^#?([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(hex);
 }
+
+/** Supported color formats for CLI output */
+export type ColorFormat = "oklch" | "hex" | "hsl" | "rgb";
+
+export const COLOR_FORMATS: ColorFormat[] = ["oklch", "hex", "hsl", "rgb"];
