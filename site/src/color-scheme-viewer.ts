@@ -8,7 +8,6 @@ import {
   hexToHCT,
   hctToHex,
   generateHueGradient,
-  SCHEME_VARIANTS,
   VARIANT_LABELS,
   COLOR_FORMATS,
   TONE_STEPS,
@@ -20,6 +19,25 @@ import {
   type ColorFormat,
   type PaletteSet,
 } from "./theme-generator.js";
+
+/** Fire callback on Enter or Space keydown (standard button activation keys) */
+function onActivate(callback: () => void) {
+  return (e: KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      callback();
+    }
+  };
+}
+
+/** Simple debounce: delays fn execution until after `ms` ms of inactivity */
+function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
+  let timer: ReturnType<typeof setTimeout>;
+  return ((...args: unknown[]) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  }) as T;
+}
 
 /**
  * <color-scheme-viewer>
@@ -41,14 +59,18 @@ export class ColorSchemeViewer extends LitElement {
   @state() private _copiedCommand = false;
   @state() private _copiedSwatch = "";
 
-  // Tonal palettes — derived from seed + variant
+  // Tonal palettes — derived from seed + variant (cached across light/dark toggle)
   @state() private _palettes: PaletteSet | null = null;
+  private _palettesCacheKey = ""; // "seed|variant" — skip recomputation on mode toggle
 
   // HCT state — derived from seed, drives the hue slider
   @state() private _hue = 0;
   @state() private _chroma = 0;
   @state() private _tone = 0;
   @state() private _hueGradient = "";
+
+  // Debounced regeneration for continuous input (slider, typing)
+  private _debouncedRegenerate = debounce(() => this._regenerate(), 16);
 
   // ────────────────────────────────────────────
   //  Styles — self-themed via CSS custom properties
@@ -68,6 +90,13 @@ export class ColorSchemeViewer extends LitElement {
     *::before,
     *::after {
       box-sizing: border-box;
+    }
+
+    /* Focus outline for keyboard navigation */
+    [role="button"]:focus-visible,
+    [role="radio"]:focus-visible {
+      outline: 2px solid var(--primary, #6750a4);
+      outline-offset: 2px;
     }
 
     /* ─── Two-column layout ─── */
@@ -757,7 +786,14 @@ export class ColorSchemeViewer extends LitElement {
 
     this._colors = generateScheme(hex, this._variant, this._isDark);
     this._variantPreviews = generateVariantPreviews(hex, this._isDark);
-    this._palettes = generateTonalPalettes(hex, this._variant);
+
+    // Only recompute tonal palettes when seed or variant actually changes
+    // (palettes are tone-independent, so dark/light toggle doesn't affect them)
+    const paletteCacheKey = `${hex}|${this._variant}`;
+    if (this._palettesCacheKey !== paletteCacheKey) {
+      this._palettes = generateTonalPalettes(hex, this._variant);
+      this._palettesCacheKey = paletteCacheKey;
+    }
 
     // Decompose seed into HCT for the hue slider
     const hct = hexToHCT(hex);
@@ -781,7 +817,7 @@ export class ColorSchemeViewer extends LitElement {
       this.seed = raw.startsWith("#")
         ? raw.toUpperCase()
         : `#${raw.toUpperCase()}`;
-      this._regenerate();
+      this._debouncedRegenerate();
     }
   }
 
@@ -801,12 +837,7 @@ export class ColorSchemeViewer extends LitElement {
     const newHex = hctToHex(hue, this._chroma, this._tone);
     this._hexInput = newHex;
     this.seed = newHex;
-    // Regenerate scheme but skip re-decomposing HCT (we already have correct values)
-    this._colors = generateScheme(newHex, this._variant, this._isDark);
-    this._variantPreviews = generateVariantPreviews(newHex, this._isDark);
-    this._palettes = generateTonalPalettes(newHex, this._variant);
-    this._applyTokens();
-    this._syncDarkAttribute();
+    this._debouncedRegenerate();
   }
 
   /** Compute the hue gradient CSS using the primary's fixed chroma + tone */
@@ -887,23 +918,43 @@ export class ColorSchemeViewer extends LitElement {
     this._outputDir = (e.target as HTMLInputElement).value || "./tokens";
   }
 
-  private async _copyCommand() {
+  private async _copyToClipboard(text: string): Promise<boolean> {
     try {
-      await navigator.clipboard.writeText(this._buildCommand());
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fallback for insecure contexts or iframe restrictions:
+      // use a temporary textarea to execute document.execCommand('copy')
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand("copy");
+        return true;
+      } catch {
+        return false;
+      } finally {
+        document.body.removeChild(textarea);
+      }
+    }
+  }
+
+  private async _copyCommand() {
+    const success = await this._copyToClipboard(this._buildCommand());
+    if (success) {
       this._copiedCommand = true;
       setTimeout(() => (this._copiedCommand = false), 1500);
-    } catch {
-      // fallback: select text
     }
   }
 
   private async _copySwatchHex(key: string, hex: string) {
-    try {
-      await navigator.clipboard.writeText(hex);
+    const success = await this._copyToClipboard(hex);
+    if (success) {
       this._copiedSwatch = key;
       setTimeout(() => (this._copiedSwatch = ""), 1000);
-    } catch {
-      // ignore
     }
   }
 
@@ -937,13 +988,17 @@ export class ColorSchemeViewer extends LitElement {
       <div
         class="swatch ${large ? "large" : ""}"
         style="background:${bg};color:${fg}"
+        role="button"
+        tabindex="0"
+        aria-label="${name}: ${bg}. Click to copy."
         @click=${() => this._copySwatchHex(bgKey, bg)}
+        @keydown=${onActivate(() => this._copySwatchHex(bgKey, bg))}
         title="Click to copy ${bg}"
       >
         <span class="token-name">${name}</span>
         <span class="hex-value">${bg}</span>
         ${isCopied
-          ? html`<span class="copied-indicator">Copied</span>`
+          ? html`<span class="copied-indicator" aria-live="polite">Copied</span>`
           : nothing}
       </div>
     `;
@@ -958,13 +1013,17 @@ export class ColorSchemeViewer extends LitElement {
       <div
         class="swatch"
         style="background:${bg};color:${fg}"
+        role="button"
+        tabindex="0"
+        aria-label="${name}: ${bg}. Click to copy."
         @click=${() => this._copySwatchHex(bgKey, bg)}
+        @keydown=${onActivate(() => this._copySwatchHex(bgKey, bg))}
         title="Click to copy ${bg}"
       >
         <span class="token-name">${name}</span>
         <span class="hex-value">${bg}</span>
         ${isCopied
-          ? html`<span class="copied-indicator">Copied</span>`
+          ? html`<span class="copied-indicator" aria-live="polite">Copied</span>`
           : nothing}
       </div>
     `;
@@ -1079,52 +1138,68 @@ export class ColorSchemeViewer extends LitElement {
             <div class="surface-row four">
               <div
                 class="swatch"
+                role="button"
+                tabindex="0"
+                aria-label="On Surface: ${c.onSurface}. Click to copy."
                 style="background:${c.onSurface};color:${c.surface}"
                 @click=${() => this._copySwatchHex("onSurface", c.onSurface)}
+                @keydown=${onActivate(() => this._copySwatchHex("onSurface", c.onSurface))}
                 title="Click to copy ${c.onSurface}"
               >
                 <span class="token-name">On Surface</span>
                 <span class="hex-value">${c.onSurface}</span>
                 ${this._copiedSwatch === "onSurface"
-                  ? html`<span class="copied-indicator">Copied</span>`
+                  ? html`<span class="copied-indicator" aria-live="polite">Copied</span>`
                   : nothing}
               </div>
               <div
                 class="swatch"
+                role="button"
+                tabindex="0"
+                aria-label="On Surface Variant: ${c.onSurfaceVariant}. Click to copy."
                 style="background:${c.onSurfaceVariant};color:${c.surface}"
                 @click=${() =>
                   this._copySwatchHex("onSurfaceVariant", c.onSurfaceVariant)}
+                @keydown=${onActivate(() => this._copySwatchHex("onSurfaceVariant", c.onSurfaceVariant))}
                 title="Click to copy ${c.onSurfaceVariant}"
               >
                 <span class="token-name">On Surface Variant</span>
                 <span class="hex-value">${c.onSurfaceVariant}</span>
                 ${this._copiedSwatch === "onSurfaceVariant"
-                  ? html`<span class="copied-indicator">Copied</span>`
+                  ? html`<span class="copied-indicator" aria-live="polite">Copied</span>`
                   : nothing}
               </div>
               <div
                 class="swatch"
+                role="button"
+                tabindex="0"
+                aria-label="Outline: ${c.outline}. Click to copy."
                 style="background:${c.outline};color:${c.surface}"
                 @click=${() => this._copySwatchHex("outline", c.outline)}
+                @keydown=${onActivate(() => this._copySwatchHex("outline", c.outline))}
                 title="Click to copy ${c.outline}"
               >
                 <span class="token-name">Outline</span>
                 <span class="hex-value">${c.outline}</span>
                 ${this._copiedSwatch === "outline"
-                  ? html`<span class="copied-indicator">Copied</span>`
+                  ? html`<span class="copied-indicator" aria-live="polite">Copied</span>`
                   : nothing}
               </div>
               <div
                 class="swatch"
+                role="button"
+                tabindex="0"
+                aria-label="Outline Variant: ${c.outlineVariant}. Click to copy."
                 style="background:${c.outlineVariant};color:${c.onSurfaceVariant}"
                 @click=${() =>
                   this._copySwatchHex("outlineVariant", c.outlineVariant)}
+                @keydown=${onActivate(() => this._copySwatchHex("outlineVariant", c.outlineVariant))}
                 title="Click to copy ${c.outlineVariant}"
               >
                 <span class="token-name">Outline Variant</span>
                 <span class="hex-value">${c.outlineVariant}</span>
                 ${this._copiedSwatch === "outlineVariant"
-                  ? html`<span class="copied-indicator">Copied</span>`
+                  ? html`<span class="copied-indicator" aria-live="polite">Copied</span>`
                   : nothing}
               </div>
             </div>
@@ -1133,66 +1208,86 @@ export class ColorSchemeViewer extends LitElement {
             <div class="section-label">Inverse & Utility</div>
             <div
               class="swatch"
+              role="button"
+              tabindex="0"
+              aria-label="Inverse Surface: ${c.inverseSurface}. Click to copy."
               style="background:${c.inverseSurface};color:${c.inverseOnSurface}"
               @click=${() =>
                 this._copySwatchHex("inverseSurface", c.inverseSurface)}
+              @keydown=${onActivate(() => this._copySwatchHex("inverseSurface", c.inverseSurface))}
               title="Click to copy ${c.inverseSurface}"
             >
               <span class="token-name">Inverse Surface</span>
               <span class="hex-value">${c.inverseSurface}</span>
               ${this._copiedSwatch === "inverseSurface"
-                ? html`<span class="copied-indicator">Copied</span>`
+                ? html`<span class="copied-indicator" aria-live="polite">Copied</span>`
                 : nothing}
             </div>
             <div
               class="swatch"
+              role="button"
+              tabindex="0"
+              aria-label="Inverse On Surface: ${c.inverseOnSurface}. Click to copy."
               style="background:${c.inverseOnSurface};color:${c.inverseSurface}"
               @click=${() =>
                 this._copySwatchHex("inverseOnSurface", c.inverseOnSurface)}
+              @keydown=${onActivate(() => this._copySwatchHex("inverseOnSurface", c.inverseOnSurface))}
               title="Click to copy ${c.inverseOnSurface}"
             >
               <span class="token-name">Inverse On Surface</span>
               <span class="hex-value">${c.inverseOnSurface}</span>
               ${this._copiedSwatch === "inverseOnSurface"
-                ? html`<span class="copied-indicator">Copied</span>`
+                ? html`<span class="copied-indicator" aria-live="polite">Copied</span>`
                 : nothing}
             </div>
             <div
               class="swatch"
+              role="button"
+              tabindex="0"
+              aria-label="Inverse Primary: ${c.inversePrimary}. Click to copy."
               style="background:${c.inversePrimary};color:${c.primary}"
               @click=${() =>
                 this._copySwatchHex("inversePrimary", c.inversePrimary)}
+              @keydown=${onActivate(() => this._copySwatchHex("inversePrimary", c.inversePrimary))}
               title="Click to copy ${c.inversePrimary}"
             >
               <span class="token-name">Inverse Primary</span>
               <span class="hex-value">${c.inversePrimary}</span>
               ${this._copiedSwatch === "inversePrimary"
-                ? html`<span class="copied-indicator">Copied</span>`
+                ? html`<span class="copied-indicator" aria-live="polite">Copied</span>`
                 : nothing}
             </div>
             <div class="surface-row two">
               <div
                 class="swatch"
+                role="button"
+                tabindex="0"
+                aria-label="Scrim: ${c.scrim}. Click to copy."
                 style="background:${c.scrim};color:white"
                 @click=${() => this._copySwatchHex("scrim", c.scrim)}
+                @keydown=${onActivate(() => this._copySwatchHex("scrim", c.scrim))}
                 title="Click to copy ${c.scrim}"
               >
                 <span class="token-name">Scrim</span>
                 <span class="hex-value">${c.scrim}</span>
                 ${this._copiedSwatch === "scrim"
-                  ? html`<span class="copied-indicator">Copied</span>`
+                  ? html`<span class="copied-indicator" aria-live="polite">Copied</span>`
                   : nothing}
               </div>
               <div
                 class="swatch"
+                role="button"
+                tabindex="0"
+                aria-label="Shadow: ${c.shadow}. Click to copy."
                 style="background:${c.shadow};color:white"
                 @click=${() => this._copySwatchHex("shadow", c.shadow)}
+                @keydown=${onActivate(() => this._copySwatchHex("shadow", c.shadow))}
                 title="Click to copy ${c.shadow}"
               >
                 <span class="token-name">Shadow</span>
                 <span class="hex-value">${c.shadow}</span>
                 ${this._copiedSwatch === "shadow"
-                  ? html`<span class="copied-indicator">Copied</span>`
+                  ? html`<span class="copied-indicator" aria-live="polite">Copied</span>`
                   : nothing}
               </div>
             </div>
@@ -1200,51 +1295,58 @@ export class ColorSchemeViewer extends LitElement {
 
           <!-- ═══ Tonal Palettes ═══ -->
           ${this._palettes
-            ? html`
-                <div class="palettes-section">
-                  <div class="palettes-header">
-                    <h2>Tonal Palettes</h2>
+            ? (() => {
+                const palettes = this._palettes;
+                return html`
+                  <div class="palettes-section">
+                    <div class="palettes-header">
+                      <h2>Tonal Palettes</h2>
+                    </div>
+                    ${PALETTE_KEYS.map(
+                      (key) => html`
+                        <div class="palette-row">
+                          <div class="palette-label">
+                            ${PALETTE_LABELS[key]}
+                          </div>
+                          <div class="palette-strip" role="group" aria-label="${PALETTE_LABELS[key]} tonal palette">
+                            ${TONE_STEPS.map((tone) => {
+                              const hex =
+                                palettes[key as keyof PaletteSet][
+                                  String(tone)
+                                ];
+                              const isLight = tone >= 50;
+                              const textColor = isLight
+                                ? "rgba(0,0,0,0.6)"
+                                : "rgba(255,255,255,0.8)";
+                              const copyKey = `${key}-${tone}`;
+                              return html`
+                                <div
+                                  class="tone-swatch"
+                                  role="button"
+                                  tabindex="0"
+                                  aria-label="${PALETTE_LABELS[key]} tone ${tone}: ${hex}. Click to copy."
+                                  style="background:${hex};color:${textColor}"
+                                  @click=${() =>
+                                    this._copySwatchHex(copyKey, hex)}
+                                  @keydown=${onActivate(() => this._copySwatchHex(copyKey, hex))}
+                                  title="${PALETTE_LABELS[key]} ${tone} — ${hex}"
+                                >
+                                  ${tone}
+                                  ${this._copiedSwatch === copyKey
+                                    ? html`<span class="copied-indicator" aria-live="polite"
+                                        >Copied</span
+                                      >`
+                                    : nothing}
+                                </div>
+                              `;
+                            })}
+                          </div>
+                        </div>
+                      `
+                    )}
                   </div>
-                  ${PALETTE_KEYS.map(
-                    (key) => html`
-                      <div class="palette-row">
-                        <div class="palette-label">
-                          ${PALETTE_LABELS[key]}
-                        </div>
-                        <div class="palette-strip">
-                          ${TONE_STEPS.map((tone) => {
-                            const hex =
-                              this._palettes![
-                                key as keyof PaletteSet
-                              ][String(tone)];
-                            const isLight = tone >= 50;
-                            const textColor = isLight
-                              ? "rgba(0,0,0,0.6)"
-                              : "rgba(255,255,255,0.8)";
-                            const copyKey = `${key}-${tone}`;
-                            return html`
-                              <div
-                                class="tone-swatch"
-                                style="background:${hex};color:${textColor}"
-                                @click=${() =>
-                                  this._copySwatchHex(copyKey, hex)}
-                                title="${PALETTE_LABELS[key]} ${tone} — ${hex}"
-                              >
-                                ${tone}
-                                ${this._copiedSwatch === copyKey
-                                  ? html`<span class="copied-indicator"
-                                      >Copied</span
-                                    >`
-                                  : nothing}
-                              </div>
-                            `;
-                          })}
-                        </div>
-                      </div>
-                    `
-                  )}
-                </div>
-              `
+                `;
+              })()
             : nothing}
         </div>
 
@@ -1252,10 +1354,11 @@ export class ColorSchemeViewer extends LitElement {
         <div class="sidebar">
           <!-- Seed color -->
           <div class="sidebar-section">
-            <h3>Brand Color</h3>
+            <h3 id="brand-color-heading">Brand Color</h3>
             <div class="seed-input-group">
               <div
                 class="seed-swatch"
+                aria-hidden="true"
                 style="background:${isValidHex(this._hexInput)
                   ? (this._hexInput.startsWith("#")
                       ? this._hexInput
@@ -1265,6 +1368,8 @@ export class ColorSchemeViewer extends LitElement {
               <input
                 class="seed-input"
                 type="text"
+                aria-label="Hex color value"
+                aria-describedby="seed-error"
                 .value=${this._hexInput}
                 @input=${this._onHexInput}
                 @blur=${this._onHexBlur}
@@ -1273,7 +1378,7 @@ export class ColorSchemeViewer extends LitElement {
                 autocomplete="off"
               />
             </div>
-            <div class="seed-error">
+            <div class="seed-error" id="seed-error" role="alert">
               ${!isValidHex(this._hexInput) && this._hexInput.length > 1
                 ? "Enter a valid hex color"
                 : ""}
@@ -1282,15 +1387,20 @@ export class ColorSchemeViewer extends LitElement {
             <!-- Hue slider -->
             <div class="hue-slider-group">
               <div class="hue-slider-header">
-                <span class="hue-slider-label">Hue</span>
+                <label class="hue-slider-label" for="hue-range">Hue</label>
                 <span class="hue-slider-value">${Math.round(this._hue)}\u00B0</span>
               </div>
               <input
+                id="hue-range"
                 class="hue-slider"
                 type="range"
                 min="0"
                 max="360"
                 step="1"
+                aria-valuemin="0"
+                aria-valuemax="360"
+                aria-valuenow=${Math.round(this._hue)}
+                aria-valuetext="${Math.round(this._hue)} degrees"
                 .value=${String(Math.round(this._hue))}
                 @input=${this._onHueInput}
                 style="background:${this._hueGradient}"
@@ -1300,34 +1410,43 @@ export class ColorSchemeViewer extends LitElement {
 
           <!-- Mode toggle -->
           <div class="sidebar-section">
-            <h3>Appearance</h3>
-            <div class="mode-toggle">
+            <h3 id="appearance-heading">Appearance</h3>
+            <div class="mode-toggle" role="radiogroup" aria-labelledby="appearance-heading">
               <button
                 class="mode-btn ${!this._isDark ? "active" : ""}"
+                role="radio"
+                aria-checked=${!this._isDark}
                 @click=${() => this._setMode(false)}
               >
-                <span class="icon">\u{2600}\u{FE0F}</span> Light
+                <span class="icon" aria-hidden="true">\u{2600}\u{FE0F}</span> Light
               </button>
               <button
                 class="mode-btn ${this._isDark ? "active" : ""}"
+                role="radio"
+                aria-checked=${this._isDark}
                 @click=${() => this._setMode(true)}
               >
-                <span class="icon">\u{263E}</span> Dark
+                <span class="icon" aria-hidden="true">\u{263E}</span> Dark
               </button>
             </div>
           </div>
 
           <!-- Variant selector -->
           <div class="sidebar-section">
-            <h3>Scheme Variant</h3>
-            <div class="variant-grid">
+            <h3 id="variant-heading">Scheme Variant</h3>
+            <div class="variant-grid" role="radiogroup" aria-labelledby="variant-heading">
               ${this._variantPreviews.map(
                 (p) => html`
                   <div
                     class="variant-card ${p.variant === this._variant
                       ? "active"
                       : ""}"
+                    role="radio"
+                    tabindex="0"
+                    aria-checked=${p.variant === this._variant}
+                    aria-label="${VARIANT_LABELS[p.variant]} scheme variant"
                     @click=${() => this._selectVariant(p.variant)}
+                    @keydown=${onActivate(() => this._selectVariant(p.variant))}
                     title="${VARIANT_LABELS[p.variant]}"
                   >
                     <div class="dots">
@@ -1363,8 +1482,9 @@ export class ColorSchemeViewer extends LitElement {
 
           <!-- Output directory -->
           <div class="sidebar-section">
-            <h3>Output Directory</h3>
+            <h3><label for="output-dir">Output Directory</label></h3>
             <input
+              id="output-dir"
               class="dir-input"
               type="text"
               .value=${this._outputDir}
@@ -1383,6 +1503,7 @@ export class ColorSchemeViewer extends LitElement {
                 class="copy-btn ${this._copiedCommand ? "copied" : ""}"
                 @click=${this._copyCommand}
                 title="Copy command"
+                aria-label=${this._copiedCommand ? "Command copied" : "Copy CLI command to clipboard"}
               >
                 ${this._copiedCommand ? "\u{2713}" : "\u{2398}"}
               </button>
@@ -1419,10 +1540,6 @@ export class ColorSchemeViewer extends LitElement {
     // Build tree connector chars
     const getPrefix = (indent: number, idx: number) => {
       if (indent === 0) return "";
-      // Look ahead to see if this is the last child at this indent level
-      const siblings = lines.filter(
-        (l, i) => i > idx && l.indent === indent && lines.slice(idx + 1, i).every((s) => s.indent >= indent)
-      );
       // Check if any following lines are still children or siblings
       let isLast = true;
       for (let i = idx + 1; i < lines.length; i++) {

@@ -4,6 +4,7 @@
  */
 import {
   Hct,
+  DynamicScheme,
   SchemeTonalSpot,
   SchemeContent,
   SchemeExpressive,
@@ -15,6 +16,13 @@ import {
   hexFromArgb,
   TonalPalette,
 } from "@material/material-color-utilities";
+
+/** Constructor type shared by all M3 scheme classes */
+type SchemeConstructor = new (
+  sourceColorHct: Hct,
+  isDark: boolean,
+  contrastLevel: number,
+) => DynamicScheme;
 
 export type SchemeVariant =
   | "tonal-spot"
@@ -95,21 +103,18 @@ export interface VariantPreview {
 }
 
 // Map variant names to their constructor classes
-const SCHEME_CONSTRUCTORS: Record<
-  SchemeVariant,
-  new (hct: Hct, isDark: boolean, contrast: number) => any
-> = {
-  "tonal-spot": SchemeTonalSpot as any,
-  content: SchemeContent as any,
-  expressive: SchemeExpressive as any,
-  fidelity: SchemeFidelity as any,
-  monochrome: SchemeMonochrome as any,
-  neutral: SchemeNeutral as any,
-  vibrant: SchemeVibrant as any,
+const SCHEME_CONSTRUCTORS: Record<SchemeVariant, SchemeConstructor> = {
+  "tonal-spot": SchemeTonalSpot,
+  content: SchemeContent,
+  expressive: SchemeExpressive,
+  fidelity: SchemeFidelity,
+  monochrome: SchemeMonochrome,
+  neutral: SchemeNeutral,
+  vibrant: SchemeVibrant,
 };
 
 /** Extract all named color tokens from a scheme instance */
-function extractSchemeColors(scheme: any): SchemeColors {
+function extractSchemeColors(scheme: DynamicScheme): SchemeColors {
   const hex = (argb: number) => hexFromArgb(argb).toUpperCase();
   return {
     primary: hex(scheme.primary),
@@ -162,6 +167,9 @@ export function generateScheme(
   const argb = argbFromHex(normalized);
   const hct = Hct.fromInt(argb);
   const Constructor = SCHEME_CONSTRUCTORS[variant];
+  if (!Constructor) {
+    throw new Error(`Unknown scheme variant: "${variant}"`);
+  }
   const scheme = new Constructor(hct, isDark, contrastLevel);
   return extractSchemeColors(scheme);
 }
@@ -181,6 +189,9 @@ export function generateVariantPreviews(
 
   return SCHEME_VARIANTS.map((variant) => {
     const Constructor = SCHEME_CONSTRUCTORS[variant];
+    if (!Constructor) {
+      throw new Error(`Unknown scheme variant: "${variant}"`);
+    }
     const scheme = new Constructor(hct, isDark, 0.0);
     return {
       variant,
@@ -191,32 +202,6 @@ export function generateVariantPreviews(
       onSurface: hex(scheme.onSurface),
     };
   });
-}
-
-/**
- * Convert SchemeColors to a flat map of CSS custom property name -> value.
- * Uses camelCase-to-kebab conversion: primaryContainer -> --primary-container
- */
-export function schemeToCSSProperties(colors: SchemeColors): Record<string, string> {
-  const props: Record<string, string> = {};
-  for (const [key, value] of Object.entries(colors)) {
-    const cssName = `--${camelToKebab(key)}`;
-    props[cssName] = value;
-  }
-  return props;
-}
-
-/** Apply scheme colors as CSS custom properties on an element */
-export function applySchemeToElement(el: HTMLElement, colors: SchemeColors): void {
-  const props = schemeToCSSProperties(colors);
-  for (const [name, value] of Object.entries(props)) {
-    el.style.setProperty(name, value);
-  }
-}
-
-/** Convert camelCase to kebab-case */
-function camelToKebab(str: string): string {
-  return str.replace(/([A-Z])/g, "-$1").toLowerCase();
 }
 
 /** Validate a hex color string */
@@ -339,8 +324,11 @@ export function generateTonalPalettes(
   const argb = argbFromHex(normalized);
   const hct = Hct.fromInt(argb);
   const Constructor = SCHEME_CONSTRUCTORS[variant];
+  if (!Constructor) {
+    throw new Error(`Unknown scheme variant: "${variant}"`);
+  }
   // Palettes are the same regardless of dark/light, use light + standard contrast
-  const scheme = new Constructor(hct, false, 0.0) as any;
+  const scheme = new Constructor(hct, false, 0.0);
 
   return {
     primary: extractPaletteData(scheme.primaryPalette),

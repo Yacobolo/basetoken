@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Design Token Configurator</title>
     <meta name="description" content="Visual configurator for Material Design 3 CSS design tokens. Pick a brand color, preview the scheme, and get the CLI command.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
     <style>
         :root {
             --page-bg: #fef7ff;
@@ -70,6 +71,11 @@
         <color-scheme-viewer seed="#769CDF"></color-scheme-viewer>
     </div>
 
+    <noscript>
+        <p style="padding:40px;text-align:center;font-size:16px;opacity:0.7;">
+            JavaScript is required to run the Design Token Configurator.
+        </p>
+    </noscript>
     <script type="module" src="/src/color-scheme-viewer.ts"></script>
     <script>
         // Sync body dark class with the component's dark attribute
