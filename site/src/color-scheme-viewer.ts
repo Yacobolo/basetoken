@@ -45,15 +45,14 @@ function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T 
  * Visual configurator for the design-tokens CLI.
  * Self-themed: the entire UI uses the generated M3 tokens.
  */
-type ThemePreference = "system" | "light" | "dark";
+type ThemePreference = "light" | "dark";
 
 @customElement("color-scheme-viewer")
 export class ColorSchemeViewer extends LitElement {
   @property({ type: String }) seed = "#769CDF";
 
   @state() private _variant: SchemeVariant = "tonal-spot";
-  @state() private _themePreference: ThemePreference = "system";
-  @state() private _systemIsDark = false;
+  @state() private _themePreference: ThemePreference = "light";
   @state() private _lightColors: SchemeColors | null = null;
   @state() private _darkColors: SchemeColors | null = null;
   @state() private _hexInput = "#769CDF";
@@ -76,17 +75,11 @@ export class ColorSchemeViewer extends LitElement {
   // Debounced regeneration for continuous input (slider, typing)
   private _debouncedRegenerate = debounce(() => this._regenerate(), 16);
 
-  // System prefers-color-scheme media query
+  // System prefers-color-scheme media query (used only for initial default)
   private _darkMediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-  private _onSystemThemeChange = (e: MediaQueryListEvent) => {
-    this._systemIsDark = e.matches;
-    this._applyTokens();
-    this._applyPageTheme();
-  };
 
   /** Resolved dark state for the page chrome (sidebar, background) */
   private get _resolvedDark(): boolean {
-    if (this._themePreference === "system") return this._systemIsDark;
     return this._themePreference === "dark";
   }
 
@@ -141,14 +134,10 @@ export class ColorSchemeViewer extends LitElement {
     }
 
     .scheme-container--light {
-      background: #fef7ff;
-      color: #1d1b20;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
     }
 
     .scheme-container--dark {
-      background: #141218;
-      color: #e6e0e9;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.06);
     }
 
@@ -172,34 +161,34 @@ export class ColorSchemeViewer extends LitElement {
       opacity: 0.6;
     }
 
-    .scheme-container--light .section-label {
-      background: #f5eefa;
-      color: #49454f;
+    /* Ensure the condensed grid fills the container */
+    .scheme-container .scheme-main {
     }
 
-    .scheme-container--dark .section-label {
-      background: #1d1a22;
-      color: #cac4d0;
-    }
-
-    /* ─── Swatch grid ─── */
-    .scheme-grid {
+    /* ─── Condensed scheme card layout ─── */
+    .scheme-main {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 2px;
-      border-radius: 16px;
+      grid-template-columns: repeat(3, 1fr) 220px;
+      gap: 16px;
+    }
+
+    /* Vertical color family stacks */
+    .color-stack {
+      display: flex;
+      flex-direction: column;
+      border-radius: 12px;
       overflow: hidden;
     }
 
     .swatch {
-      padding: 12px 14px;
-      min-height: 72px;
+      padding: 16px;
+      height: 60px;
       display: flex;
-      flex-direction: column;
-      justify-content: space-between;
+      align-items: flex-start;
       cursor: pointer;
       position: relative;
       transition: var(--transition-color);
+      box-sizing: border-box;
     }
 
     .swatch:hover {
@@ -207,19 +196,13 @@ export class ColorSchemeViewer extends LitElement {
     }
 
     .swatch.large {
-      min-height: 96px;
+      height: 100px;
     }
 
     .swatch .token-name {
       font-size: 12px;
       font-weight: 600;
       letter-spacing: 0.2px;
-    }
-
-    .swatch .hex-value {
-      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-      font-size: 11px;
-      opacity: 0.75;
     }
 
     .swatch .copied-indicator {
@@ -249,40 +232,54 @@ export class ColorSchemeViewer extends LitElement {
       }
     }
 
-    /* Surface section spans full width */
-    .section-label {
-      grid-column: 1 / -1;
-      padding: 20px 14px 8px;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      background: var(--surface, #fafafa);
-      color: var(--on-surface-variant, #666);
-      transition: var(--transition-color);
+    /* Left content area spanning first 3 columns */
+    .left-content {
+      grid-column: span 3;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
     }
 
-    .span-full {
-      grid-column: 1 / -1;
-    }
-
+    /* Surface / utility rows inside left-content */
     .surface-row {
-      grid-column: 1 / -1;
+      display: flex;
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .surface-row > div {
+      flex: 1;
+    }
+
+    .surface-row.five > div {
+      flex: 1;
+    }
+
+    .surface-row.four > div {
+      flex: 1;
+    }
+
+    /* Right-bottom section (inverse + utility) */
+    .right-bottom {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .right-bottom .color-stack {
+      flex: 1;
+    }
+
+    .utility-row {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 2px;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 16px;
     }
 
-    .surface-row.five {
-      grid-template-columns: repeat(5, 1fr);
-    }
-
-    .surface-row.four {
-      grid-template-columns: repeat(4, 1fr);
-    }
-
-    .surface-row.two {
-      grid-template-columns: repeat(2, 1fr);
+    .utility-row .swatch {
+      font-weight: bold;
+      border-radius: 12px;
     }
 
     /* ─── Left: Sidebar configurator ─── */
@@ -767,12 +764,19 @@ export class ColorSchemeViewer extends LitElement {
         overflow-y: visible;
       }
 
-      .scheme-grid {
+      .scheme-main {
         grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
       }
 
-      .surface-row.five {
-        grid-template-columns: repeat(3, 1fr);
+      .left-content {
+        grid-column: span 2;
+        gap: 12px;
+      }
+
+      .utility-row {
+        gap: 12px;
+        margin-top: 12px;
       }
 
       .palette-strip {
@@ -790,15 +794,23 @@ export class ColorSchemeViewer extends LitElement {
         border-radius: 16px;
       }
 
-      .scheme-grid {
+      .scheme-main {
         grid-template-columns: 1fr;
+        gap: 10px;
       }
 
-      .surface-row,
-      .surface-row.five,
-      .surface-row.four,
-      .surface-row.two {
-        grid-template-columns: 1fr;
+      .left-content {
+        grid-column: span 1;
+        gap: 10px;
+      }
+
+      .utility-row {
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .surface-row {
+        flex-direction: column;
       }
 
       .variant-grid {
@@ -823,14 +835,9 @@ export class ColorSchemeViewer extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._hexInput = this.seed;
-    this._systemIsDark = this._darkMediaQuery.matches;
-    this._darkMediaQuery.addEventListener("change", this._onSystemThemeChange);
+    // Use system preference only for initial default
+    this._themePreference = this._darkMediaQuery.matches ? "dark" : "light";
     this._regenerate();
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    this._darkMediaQuery.removeEventListener("change", this._onSystemThemeChange);
   }
 
   updated(changed: Map<string, unknown>) {
@@ -855,8 +862,8 @@ export class ColorSchemeViewer extends LitElement {
     this._lightColors = generateScheme(hex, this._variant, false);
     this._darkColors = generateScheme(hex, this._variant, true);
 
-    // Variant previews — use light mode for the sidebar preview dots
-    this._variantPreviews = generateVariantPreviews(hex, false);
+    // Variant previews — reactive to current light/dark preference
+    this._variantPreviews = generateVariantPreviews(hex, this._resolvedDark);
 
     // Only recompute tonal palettes when seed or variant actually changes
     const paletteCacheKey = `${hex}|${this._variant}`;
@@ -964,7 +971,7 @@ export class ColorSchemeViewer extends LitElement {
     }
   }
 
-  /** Sync page body class and dark attribute based on resolved theme */
+  /** Sync page body class, dark attribute, and page background based on resolved theme */
   private _applyPageTheme() {
     const dark = this._resolvedDark;
     if (dark) {
@@ -973,6 +980,13 @@ export class ColorSchemeViewer extends LitElement {
       this.removeAttribute("dark");
     }
     document.body.classList.toggle("dark", dark);
+
+    // Set page background/text to the actual generated scheme tokens
+    const c = dark ? this._darkColors : this._lightColors;
+    if (c) {
+      document.body.style.setProperty("--page-bg", c.surface);
+      document.body.style.setProperty("--page-text", c.onSurface);
+    }
   }
 
   private _selectVariant(v: SchemeVariant) {
@@ -981,11 +995,16 @@ export class ColorSchemeViewer extends LitElement {
   }
 
   private _cycleTheme() {
-    const order: ThemePreference[] = ["system", "light", "dark"];
-    const idx = order.indexOf(this._themePreference);
-    this._themePreference = order[(idx + 1) % order.length];
+    this._themePreference = this._themePreference === "light" ? "dark" : "light";
     this._applyTokens();
     this._applyPageTheme();
+    // Re-generate variant previews so dots reflect current light/dark state
+    if (isValidHex(this._hexInput)) {
+      const hex = this._hexInput.startsWith("#")
+        ? this._hexInput.toUpperCase()
+        : `#${this._hexInput.toUpperCase()}`;
+      this._variantPreviews = generateVariantPreviews(hex, this._resolvedDark);
+    }
   }
 
   private _selectFormat(f: ColorFormat) {
@@ -1076,7 +1095,6 @@ export class ColorSchemeViewer extends LitElement {
         title="Click to copy ${bg}"
       >
         <span class="token-name">${name}</span>
-        <span class="hex-value">${bg}</span>
         ${isCopied
           ? html`<span class="copied-indicator" aria-live="polite">Copied</span>`
           : nothing}
@@ -1106,7 +1124,6 @@ export class ColorSchemeViewer extends LitElement {
         title="Click to copy ${bg}"
       >
         <span class="token-name">${name}</span>
-        <span class="hex-value">${bg}</span>
         ${isCopied
           ? html`<span class="copied-indicator" aria-live="polite">Copied</span>`
           : nothing}
@@ -1137,7 +1154,6 @@ export class ColorSchemeViewer extends LitElement {
         title="Click to copy ${bg}"
       >
         <span class="token-name">${name}</span>
-        <span class="hex-value">${bg}</span>
         ${isCopied
           ? html`<span class="copied-indicator" aria-live="polite">Copied</span>`
           : nothing}
@@ -1169,7 +1185,6 @@ export class ColorSchemeViewer extends LitElement {
         title="Click to copy ${bg}"
       >
         <span class="token-name">${name}</span>
-        <span class="hex-value">${bg}</span>
         ${isCopied
           ? html`<span class="copied-indicator" aria-live="polite">Copied</span>`
           : nothing}
@@ -1178,7 +1193,10 @@ export class ColorSchemeViewer extends LitElement {
   }
 
   /**
-   * Render a full scheme swatch grid. Called once for light, once for dark.
+   * Render a condensed scheme card matching the M3 reference layout.
+   * Top row: 4 vertical stacks (Primary | Secondary | Tertiary | Error).
+   * Below: Surface rows span left 3 cols, Inverse + Utility in the right col.
+   *
    * @param colors  The generated scheme colors
    * @param prefix  Unique prefix for copy-key namespacing ("light" or "dark")
    */
@@ -1191,67 +1209,72 @@ export class ColorSchemeViewer extends LitElement {
       this._inlineSwatch(colors, prefix, name, bg, fg);
 
     return html`
-      <div class="scheme-grid">
-        <!-- Primary family -->
-        <div class="section-label">Primary</div>
-        ${s("Primary", "primary", "onPrimary", true)}
-        ${s("On Primary", "onPrimary", "primary")}
-        ${s("Primary Container", "primaryContainer", "onPrimaryContainer", true)}
-        ${s("On Primary Container", "onPrimaryContainer", "primaryContainer")}
-
-        <!-- Secondary family -->
-        <div class="section-label">Secondary</div>
-        ${s("Secondary", "secondary", "onSecondary", true)}
-        ${s("On Secondary", "onSecondary", "secondary")}
-        ${s("Secondary Container", "secondaryContainer", "onSecondaryContainer", true)}
-        ${s("On Secondary Container", "onSecondaryContainer", "secondaryContainer")}
-
-        <!-- Tertiary family -->
-        <div class="section-label">Tertiary</div>
-        ${s("Tertiary", "tertiary", "onTertiary", true)}
-        ${s("On Tertiary", "onTertiary", "tertiary")}
-        ${s("Tertiary Container", "tertiaryContainer", "onTertiaryContainer", true)}
-        ${s("On Tertiary Container", "onTertiaryContainer", "tertiaryContainer")}
-
-        <!-- Error family -->
-        <div class="section-label">Error</div>
-        ${s("Error", "error", "onError", true)}
-        ${s("On Error", "onError", "error")}
-        ${s("Error Container", "errorContainer", "onErrorContainer", true)}
-        ${s("On Error Container", "onErrorContainer", "errorContainer")}
-
-        <!-- Surface hierarchy -->
-        <div class="section-label">Surface</div>
-        <div class="surface-row">
-          ${ss("Surface Dim", "surfaceDim")}
-          ${ss("Surface", "surface")}
-          ${ss("Surface Bright", "surfaceBright")}
-        </div>
-        <div class="surface-row five">
-          ${ss("Container Lowest", "surfaceContainerLowest")}
-          ${ss("Container Low", "surfaceContainerLow")}
-          ${ss("Container", "surfaceContainer")}
-          ${ss("Container High", "surfaceContainerHigh")}
-          ${ss("Container Highest", "surfaceContainerHighest")}
+      <div class="scheme-main">
+        <!-- Primary stack -->
+        <div class="color-stack">
+          ${s("Primary", "primary", "onPrimary", true)}
+          ${s("On Primary", "onPrimary", "primary")}
+          ${s("Primary Container", "primaryContainer", "onPrimaryContainer", true)}
+          ${s("On Primary Container", "onPrimaryContainer", "primaryContainer")}
         </div>
 
-        <!-- On Surface / Outline -->
-        <div class="section-label">On Surface & Outline</div>
-        <div class="surface-row four">
-          ${is("On Surface", "onSurface", "surface")}
-          ${is("On Surface Variant", "onSurfaceVariant", "surface")}
-          ${is("Outline", "outline", "surface")}
-          ${is("Outline Variant", "outlineVariant", "onSurfaceVariant")}
+        <!-- Secondary stack -->
+        <div class="color-stack">
+          ${s("Secondary", "secondary", "onSecondary", true)}
+          ${s("On Secondary", "onSecondary", "secondary")}
+          ${s("Secondary Container", "secondaryContainer", "onSecondaryContainer", true)}
+          ${s("On Secondary Container", "onSecondaryContainer", "secondaryContainer")}
         </div>
 
-        <!-- Inverse + Utility -->
-        <div class="section-label">Inverse & Utility</div>
-        ${is("Inverse Surface", "inverseSurface", "inverseOnSurface")}
-        ${is("Inverse On Surface", "inverseOnSurface", "inverseSurface")}
-        ${is("Inverse Primary", "inversePrimary", "primary")}
-        <div class="surface-row two">
-          ${this._fixedFgSwatch(colors, prefix, "Scrim", "scrim", "#FFFFFF")}
-          ${this._fixedFgSwatch(colors, prefix, "Shadow", "shadow", "#FFFFFF")}
+        <!-- Tertiary stack -->
+        <div class="color-stack">
+          ${s("Tertiary", "tertiary", "onTertiary", true)}
+          ${s("On Tertiary", "onTertiary", "tertiary")}
+          ${s("Tertiary Container", "tertiaryContainer", "onTertiaryContainer", true)}
+          ${s("On Tertiary Container", "onTertiaryContainer", "tertiaryContainer")}
+        </div>
+
+        <!-- Error stack -->
+        <div class="color-stack">
+          ${s("Error", "error", "onError", true)}
+          ${s("On Error", "onError", "error")}
+          ${s("Error Container", "errorContainer", "onErrorContainer", true)}
+          ${s("On Error Container", "onErrorContainer", "errorContainer")}
+        </div>
+
+        <!-- Surface rows span left 3 columns -->
+        <div class="left-content">
+          <div class="surface-row">
+            ${ss("Surface Dim", "surfaceDim")}
+            ${ss("Surface", "surface")}
+            ${ss("Surface Bright", "surfaceBright")}
+          </div>
+          <div class="surface-row five">
+            ${ss("Cont. Lowest", "surfaceContainerLowest")}
+            ${ss("Cont. Low", "surfaceContainerLow")}
+            ${ss("Container", "surfaceContainer")}
+            ${ss("Cont. High", "surfaceContainerHigh")}
+            ${ss("Cont. Highest", "surfaceContainerHighest")}
+          </div>
+          <div class="surface-row four">
+            ${is("On Surface", "onSurface", "surface")}
+            ${is("On Surface Var.", "onSurfaceVariant", "surface")}
+            ${is("Outline", "outline", "surface")}
+            ${is("Outline Variant", "outlineVariant", "onSurfaceVariant")}
+          </div>
+        </div>
+
+        <!-- Inverse + Utility in the right column -->
+        <div class="right-bottom">
+          <div class="color-stack">
+            ${is("Inverse Surface", "inverseSurface", "inverseOnSurface")}
+            ${is("Inverse On Surface", "inverseOnSurface", "inverseSurface")}
+            ${is("Inverse Primary", "inversePrimary", "primary")}
+          </div>
+          <div class="utility-row">
+            ${this._fixedFgSwatch(colors, prefix, "Scrim", "scrim", "#FFFFFF")}
+            ${this._fixedFgSwatch(colors, prefix, "Shadow", "shadow", "#FFFFFF")}
+          </div>
         </div>
       </div>
     `;
@@ -1264,15 +1287,12 @@ export class ColorSchemeViewer extends LitElement {
   render() {
     if (!this._lightColors || !this._darkColors) return html`<p>Loading...</p>`;
 
-    // SVG icons for the theme toggle
+    // SVG icons for the theme toggle and scheme headers
     const sunIcon = html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
     const moonIcon = html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>`;
-    const monitorIcon = html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
 
-    const themeIcon = this._themePreference === "system" ? monitorIcon
-      : this._themePreference === "light" ? sunIcon : moonIcon;
-    const themeLabel = this._themePreference === "system" ? "System"
-      : this._themePreference === "light" ? "Light" : "Dark";
+    const themeIcon = this._themePreference === "light" ? sunIcon : moonIcon;
+    const themeLabel = this._themePreference === "light" ? "Light" : "Dark";
 
     return html`
       <div class="layout">
@@ -1437,7 +1457,10 @@ export class ColorSchemeViewer extends LitElement {
         <!-- ═══ RIGHT: Dual scheme preview ═══ -->
         <div class="preview">
           <!-- Light scheme -->
-          <div class="scheme-container scheme-container--light">
+          <div
+            class="scheme-container scheme-container--light"
+            style="background:${this._lightColors.surfaceContainerLow};color:${this._lightColors.onSurface}"
+          >
             <div class="scheme-header">
               <span class="scheme-header-icon" aria-hidden="true">${sunIcon}</span>
               <h2>Light</h2>
@@ -1446,7 +1469,10 @@ export class ColorSchemeViewer extends LitElement {
           </div>
 
           <!-- Dark scheme -->
-          <div class="scheme-container scheme-container--dark">
+          <div
+            class="scheme-container scheme-container--dark"
+            style="background:${this._darkColors.surfaceContainerLow};color:${this._darkColors.onSurface}"
+          >
             <div class="scheme-header">
               <span class="scheme-header-icon" aria-hidden="true">${moonIcon}</span>
               <h2>Dark</h2>
