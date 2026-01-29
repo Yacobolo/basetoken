@@ -42,7 +42,7 @@ function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T 
 /**
  * <color-scheme-viewer>
  *
- * Visual configurator for the design-tokens CLI.
+ * Visual configurator for the OpenHue CLI.
  * Self-themed: the entire UI uses the generated M3 tokens.
  */
 type ThemePreference = "light" | "dark";
@@ -1445,7 +1445,7 @@ export class ColorSchemeViewer extends LitElement {
   // ────────────────────────────────────────────
 
   private _buildCommand(): string {
-    const parts = [`bun src/index.ts -s "${this.seed}"`];
+    const parts = [`npx openhue -s "${this.seed}"`];
     if (this._format !== "oklch") parts.push(`-f ${this._format}`);
     if (this._variant !== "tonal-spot") parts.push(`--scheme ${this._variant}`);
     if (this._contrastLevel === 0.5) parts.push("--contrast medium");
@@ -1459,7 +1459,7 @@ export class ColorSchemeViewer extends LitElement {
     const flag = (name: string, value: string) =>
       html` <span class="cmd-flag">${name}</span> <span class="cmd-value">${value}</span>`;
 
-    return html`<span class="cmd-bin">bun</span> <span class="cmd-value">src/index.ts</span>${flag("-s", `"${this.seed}"`)}${this._format !== "oklch" ? flag("-f", this._format) : nothing}${this._variant !== "tonal-spot" ? flag("--scheme", this._variant) : nothing}${this._contrastLevel === 0.5 ? flag("--contrast", "medium") : this._contrastLevel === 1.0 ? flag("--contrast", "high") : nothing}${this._outputDir !== "./tokens" ? flag("-o", this._outputDir) : nothing}`;
+    return html`<span class="cmd-bin">npx</span> <span class="cmd-value">openhue</span>${flag("-s", `"${this.seed}"`)}${this._format !== "oklch" ? flag("-f", this._format) : nothing}${this._variant !== "tonal-spot" ? flag("--scheme", this._variant) : nothing}${this._contrastLevel === 0.5 ? flag("--contrast", "medium") : this._contrastLevel === 1.0 ? flag("--contrast", "high") : nothing}${this._outputDir !== "./tokens" ? flag("-o", this._outputDir) : nothing}`;
   }
 
   // ────────────────────────────────────────────

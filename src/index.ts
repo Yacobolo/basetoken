@@ -26,9 +26,9 @@ const CONTRAST_LEVELS: ContrastLevel[] = ["standard", "medium", "high"];
 const program = new Command();
 
 program
-  .name("design-tokens")
+  .name("openhue")
   .description(
-    "Generate CSS design tokens from a Material Design 3 seed color"
+    "Generate Material Design 3 color tokens from a seed color using the HCT color space"
   )
   .version("1.0.0")
   .requiredOption("-s, --seed <color>", "Seed color as hex (e.g., #769CDF)")
