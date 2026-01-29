@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BaseToken — Material Design 3 Color Token Generator</title>
     <meta name="description" content="Generate Material Design 3 color tokens from a seed color using the HCT color space. Pick a brand color, preview light and dark schemes, and export CSS custom properties.">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
+    <link rel="icon" id="favicon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='96' fill='%23402D00'/><g fill='%23EAC16C' transform='translate(64 64) scale(0.75)'><path d='M426.67 185.47V85.33h-100.14L256 14.72l-70.53 70.61H85.33v100.14L14.72 256l70.61 70.53v100.14h100.14L256 497.28l70.53-70.61h100.14V326.53L497.28 256l-70.61-70.53zm-42.67 123.2V384h-75.09L256 436.91 203.09 384H128v-75.09L75.09 256 128 203.09V128h75.09L256 75.09 309.09 128H384v75.09L436.91 256 384 308.91zM256 128c-70.69 0-128 57.31-128 128s57.31 128 128 128 128-57.31 128-128-57.31-128-128-128zm0 213.33c-47.06 0-85.33-38.27-85.33-85.33s38.27-85.33 85.33-85.33 85.33 38.27 85.33 85.33-38.27 85.33-85.33 85.33z'/></g></svg>">
     <style>
         :root {
             --page-bg: #fef7ff;
@@ -15,6 +15,8 @@
             --page-surface-container: #f3edf7;
             --page-surface-container-high: #ece6f0;
             --page-primary: #6750a4;
+            --logo-bg: #FFFFFF;
+            --logo-fg: #78590C;
             --header-height: 56px;
         }
 
@@ -26,6 +28,8 @@
             --page-surface-container: #211f26;
             --page-surface-container-high: #2b2930;
             --page-primary: #d0bcff;
+            --logo-bg: #402D00;
+            --logo-fg: #EAC16C;
         }
 
         /* Pre-JS flash prevention: respect system preference immediately */
@@ -38,6 +42,8 @@
                 --page-surface-container: #211f26;
                 --page-surface-container-high: #2b2930;
                 --page-primary: #d0bcff;
+                --logo-bg: #402D00;
+                --logo-fg: #EAC16C;
             }
         }
 
@@ -85,11 +91,10 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
-            background: linear-gradient(135deg, #6750a4 0%, #7f67be 100%);
-            color: white;
+            background: var(--logo-bg, #402D00);
+            color: var(--logo-fg, #EAC16C);
             flex-shrink: 0;
-            transition: background 0.3s ease;
+            transition: background 0.3s ease, color 0.3s ease;
         }
 
         .app-title {
@@ -187,7 +192,7 @@
     <header class="app-header">
         <div class="app-header-left">
             <div class="app-logo" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="15.5" r="2.5"/><circle cx="8.5" cy="15.5" r="2.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zm-2 5.79V18h-3.52L12 20.48 9.52 18H6v-3.52L3.52 12 6 9.52V6h3.52L12 3.52 14.48 6H18v3.52L20.48 12 18 14.48zM12 6c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/></svg>
             </div>
             <span class="app-title">BaseToken</span>
             <span class="app-title-sub">Material Design 3 Color Tokens</span>
@@ -254,10 +259,13 @@
             // Listen for theme changes FROM the web component
             document.addEventListener('theme-changed', (e) => {
                 updateIcons(e.detail?.dark);
-                // Update logo gradient with primary color if available
-                const logo = document.querySelector('.app-logo');
-                if (logo && e.detail?.primary) {
-                    logo.style.background = `linear-gradient(135deg, ${e.detail.primary} 0%, ${e.detail.primaryContainer || e.detail.primary} 100%)`;
+                // Swap favicon for light/dark mode
+                const favicon = document.getElementById('favicon');
+                if (favicon) {
+                    const isDark = e.detail?.dark;
+                    const bg = isDark ? '%23402D00' : '%23FFFFFF';
+                    const fg = isDark ? '%23EAC16C' : '%2378590C';
+                    favicon.href = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='96' fill='${bg}'/><g fill='${fg}' transform='translate(64 64) scale(0.75)'><path d='M426.67 185.47V85.33h-100.14L256 14.72l-70.53 70.61H85.33v100.14L14.72 256l70.61 70.53v100.14h100.14L256 497.28l70.53-70.61h100.14V326.53L497.28 256l-70.61-70.53zm-42.67 123.2V384h-75.09L256 436.91 203.09 384H128v-75.09L75.09 256 128 203.09V128h75.09L256 75.09 309.09 128H384v75.09L436.91 256 384 308.91zM256 128c-70.69 0-128 57.31-128 128s57.31 128 128 128 128-57.31 128-128-57.31-128-128-128zm0 213.33c-47.06 0-85.33-38.27-85.33-85.33s38.27-85.33 85.33-85.33 85.33 38.27 85.33 85.33-38.27 85.33-85.33 85.33z'/></g></svg>`;
                 }
             });
         });
