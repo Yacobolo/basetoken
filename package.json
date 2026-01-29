@@ -1,11 +1,11 @@
 {
-  "name": "openhue",
+  "name": "basetoken",
   "version": "1.0.0",
   "description": "Generate Material Design 3 color tokens from a seed color using the HCT color space. Outputs CSS custom properties for light, dark, and contrast-adjusted schemes.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "openhue": "dist/index.js"
+    "basetoken": "dist/index.js"
   },
   "files": [
     "dist"
@@ -18,7 +18,7 @@
     "prepublishOnly": "npm run build"
   },
   "keywords": [
-    "openhue",
+    "basetoken",
     "material-design",
     "material-design-3",
     "design-tokens",
@@ -33,11 +33,11 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yacobolo/openhue.git"
+    "url": "git+https://github.com/yacobolo/basetoken.git"
   },
-  "homepage": "https://yacobolo.github.io/openhue",
+  "homepage": "https://yacobolo.github.io/basetoken",
   "bugs": {
-    "url": "https://github.com/yacobolo/openhue/issues"
+    "url": "https://github.com/yacobolo/basetoken/issues"
   },
   "dependencies": {
     "@material/material-color-utilities": "^0.4.0",

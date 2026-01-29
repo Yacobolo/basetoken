@@ -1,10 +1,10 @@
-# OpenHue
+# BaseToken
 
 Generate Material Design 3 color tokens from a seed color using the HCT color space.
 
 Outputs CSS custom properties for light, dark, and contrast-adjusted schemes — ready to drop into any project.
 
-**[Live Demo](https://yacobolo.github.io/openhue)**
+**[Live Demo](https://yacobolo.github.io/basetoken)**
 
 ## Features
 
@@ -19,16 +19,24 @@ Outputs CSS custom properties for light, dark, and contrast-adjusted schemes —
 ## Quick Start
 
 ```bash
-npx openhue --seed "#6750A4"
+npx basetoken --seed "#6750A4"
 ```
 
 This generates a full set of CSS design tokens in `./tokens/`:
 
 ```
 tokens/
-  light.css       # Light scheme tokens
-  dark.css        # Dark scheme tokens
-  palettes.css    # Tonal palettes (primary, secondary, tertiary, neutral, error)
+  index.css              # Aggregated imports for all token files
+  semantic.css           # Semantic tokens (light/dark via prefers-color-scheme)
+  app.css                # App-level CSS template (created once, not overwritten)
+  material/
+    palettes.css         # Tonal palettes (primary, secondary, tertiary, neutral, neutral-variant)
+  open-props/
+    fonts.css            # Font families, sizes, weights, line-heights
+    sizes.css            # Spacing and sizing scale
+    shadows.css          # Shadow definitions
+    borders.css          # Border sizes and radii
+    easings.css          # Easing and animation curves
 ```
 
 ## CLI Options
@@ -57,18 +65,18 @@ tokens/
 
 ```bash
 # Expressive scheme in hex format
-npx openhue --seed "#E8175D" --scheme expressive --format hex
+npx basetoken --seed "#E8175D" --scheme expressive --format hex
 
 # High contrast, custom output directory
-npx openhue --seed "#1A73E8" --contrast high --output ./design-system/tokens
+npx basetoken --seed "#1A73E8" --contrast high --output ./design-system/tokens
 
 # Monochrome scheme
-npx openhue --seed "#333333" --scheme monochrome
+npx basetoken --seed "#333333" --scheme monochrome
 ```
 
 ## Interactive Configurator
 
-The [live demo site](https://yacobolo.github.io/openhue) lets you:
+The [live demo site](https://yacobolo.github.io/basetoken) lets you:
 
 - Pick a seed color and see the generated scheme in real time
 - Compare all 7 scheme variants side by side

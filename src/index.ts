@@ -25,7 +25,7 @@ const CONTRAST_LEVELS: ContrastLevel[] = ["standard", "medium", "high"];
 const program = new Command();
 
 program
-  .name("openhue")
+  .name("basetoken")
   .description(
     "Generate Material Design 3 color tokens from a seed color using the HCT color space"
   )

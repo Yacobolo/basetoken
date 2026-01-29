@@ -34,7 +34,7 @@ export function generateHeader(
   }
 
   lines.push(" *");
-  lines.push(" * DO NOT EDIT - Regenerate with: npx openhue");
+  lines.push(" * DO NOT EDIT - Regenerate with: npx basetoken");
   lines.push(" */");
   lines.push("");
 
