@@ -300,7 +300,10 @@ export class ColorSchemeViewer extends LitElement {
       overflow-y: auto;
       scrollbar-width: thin;
       scrollbar-color: var(--outline-variant, #ddd) transparent;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.04),
+        0 4px 12px rgba(0, 0, 0, 0.03),
+        0 0 0 1px color-mix(in srgb, var(--outline-variant, #ddd) 30%, transparent);
     }
 
     .sidebar::-webkit-scrollbar {
@@ -351,12 +354,22 @@ export class ColorSchemeViewer extends LitElement {
     }
 
     .sidebar-group-label {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
+      font-size: 13px;
+      font-weight: 650;
+      letter-spacing: -0.01em;
       color: var(--on-surface-variant, #666);
       transition: var(--transition-color);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-group-label .section-icon {
+      display: flex;
+      align-items: center;
+      color: var(--primary, #6750a4);
+      opacity: 0.7;
+      transition: color 0.2s ease, opacity 0.2s ease;
     }
 
     .sidebar-group-chevron {
@@ -402,12 +415,22 @@ export class ColorSchemeViewer extends LitElement {
 
     .sidebar-section h3 {
       margin: 0 0 12px;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
+      font-size: 13px;
+      font-weight: 650;
+      letter-spacing: -0.01em;
       color: var(--on-surface-variant, #666);
       transition: var(--transition-color);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-section h3 .section-icon {
+      display: flex;
+      align-items: center;
+      color: var(--primary, #6750a4);
+      opacity: 0.7;
+      transition: color 0.2s ease, opacity 0.2s ease;
     }
 
     /* ─── Sidebar sub-section (within groups) ─── */
@@ -426,6 +449,59 @@ export class ColorSchemeViewer extends LitElement {
     }
 
     /* ─── Hex seed input ─── */
+    .seed-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .seed-swatch-wrap {
+      position: relative;
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      /* checkerboard background for visual grounding */
+      background-image:
+        linear-gradient(45deg, #ccc 25%, transparent 25%),
+        linear-gradient(-45deg, #ccc 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ccc 75%),
+        linear-gradient(-45deg, transparent 75%, #ccc 75%);
+      background-size: 8px 8px;
+      background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    }
+
+    .seed-swatch-wrap:hover {
+      transform: scale(1.06);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .seed-swatch-wrap:active {
+      transform: scale(0.97);
+    }
+
+    .seed-swatch {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      transition: background-color 0.2s ease;
+      border: 2px solid color-mix(in srgb, var(--outline-variant, #ddd) 60%, transparent);
+    }
+
+    .seed-color-input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+      border: none;
+      padding: 0;
+    }
+
     .seed-input-group {
       display: flex;
       align-items: stretch;
@@ -434,17 +510,12 @@ export class ColorSchemeViewer extends LitElement {
       overflow: hidden;
       border: 1.5px solid var(--outline-variant, #ddd);
       transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      flex: 1;
     }
 
     .seed-input-group:focus-within {
       border-color: var(--primary, #6750a4);
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #6750a4) 14%, transparent);
-    }
-
-    .seed-swatch {
-      width: 48px;
-      flex-shrink: 0;
-      transition: background-color 0.2s ease;
     }
 
     .seed-input {
@@ -469,8 +540,35 @@ export class ColorSchemeViewer extends LitElement {
     .seed-error {
       font-size: 11px;
       color: var(--error, #b3261e);
+      margin-top: 4px;
+      min-height: 14px;
+    }
+
+    /* ─── HCT readout ─── */
+    .hct-readout {
+      display: flex;
+      gap: 6px;
       margin-top: 6px;
-      min-height: 16px;
+    }
+
+    .hct-chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--surface-container-high, #e8e8e8);
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--on-surface-variant, #666);
+      transition: var(--transition-color);
+      letter-spacing: 0.02em;
+    }
+
+    .hct-chip .hct-label {
+      opacity: 0.5;
+      font-weight: 500;
     }
 
     /* ─── Hue slider ─── */
@@ -527,14 +625,18 @@ export class ColorSchemeViewer extends LitElement {
       border-radius: 50%;
       background: white;
       border: 2.5px solid var(--on-surface, #1d1b20);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+      box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.25),
+        0 0 0 3px var(--hue-glow-color, transparent);
       cursor: pointer;
       transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
 
     .hue-slider::-webkit-slider-thumb:hover {
       transform: scale(1.1);
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+      box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.35),
+        0 0 0 5px var(--hue-glow-color, transparent);
     }
 
     .hue-slider:active::-webkit-slider-thumb {
@@ -548,7 +650,9 @@ export class ColorSchemeViewer extends LitElement {
       border-radius: 50%;
       background: white;
       border: 2.5px solid var(--on-surface, #1d1b20);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+      box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.25),
+        0 0 0 3px var(--hue-glow-color, transparent);
       cursor: pointer;
     }
 
@@ -625,13 +729,39 @@ export class ColorSchemeViewer extends LitElement {
       color: var(--on-primary-container, #333);
     }
 
-    /* ─── Format segmented control ─── */
+    @keyframes card-select-pulse {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.04); }
+      100% { transform: scale(1); }
+    }
+
+    .variant-card.active {
+      animation: card-select-pulse 0.3s ease;
+    }
+
+    /* ─── Format segmented control (sliding pill) ─── */
     .segmented {
       display: flex;
       border-radius: 10px;
       overflow: hidden;
       border: 1.5px solid var(--outline-variant, #ddd);
       transition: var(--transition-color);
+      position: relative;
+      background: var(--surface-container-high, #e8e8e8);
+    }
+
+    /* Sliding pill indicator */
+    .seg-pill {
+      position: absolute;
+      top: 2px;
+      bottom: 2px;
+      left: 2px;
+      border-radius: 8px;
+      background: var(--primary, #6750a4);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                  width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 0;
+      pointer-events: none;
     }
 
     .seg-btn {
@@ -643,26 +773,66 @@ export class ColorSchemeViewer extends LitElement {
       font-weight: 600;
       font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
       letter-spacing: 0.3px;
-      transition: background-color 0.15s ease, color 0.15s ease;
+      transition: color 0.2s ease;
+      position: relative;
+      z-index: 1;
+      background: transparent;
     }
 
     .seg-btn.active {
-      background: var(--primary, #6750a4);
       color: var(--on-primary, #fff);
     }
 
     .seg-btn:not(.active) {
-      background: var(--surface-container-high, #e8e8e8);
       color: var(--on-surface-variant, #666);
     }
 
     .seg-btn:not(.active):hover {
-      background: var(--surface-container-highest, #e0e0e0);
+      background: color-mix(in srgb, var(--on-surface, #1d1b20) 5%, transparent);
+      border-radius: 8px;
     }
 
     .seg-btn:focus-visible {
       outline: 2px solid var(--primary, #6750a4);
       outline-offset: -2px;
+    }
+
+    /* ─── Contrast badge ─── */
+    .contrast-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--on-surface-variant, #666);
+      transition: var(--transition-color);
+    }
+
+    .contrast-badge-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .contrast-badge-pill.level-aa {
+      background: color-mix(in srgb, var(--tertiary, #7d5260) 15%, transparent);
+      color: var(--tertiary, #7d5260);
+    }
+
+    .contrast-badge-pill.level-aa-plus {
+      background: color-mix(in srgb, var(--primary, #6750a4) 15%, transparent);
+      color: var(--primary, #6750a4);
+    }
+
+    .contrast-badge-pill.level-aaa {
+      background: color-mix(in srgb, var(--primary, #6750a4) 20%, transparent);
+      color: var(--primary, #6750a4);
     }
 
     /* ─── Output dir input ─── */
@@ -710,28 +880,38 @@ export class ColorSchemeViewer extends LitElement {
       position: absolute;
       top: 8px;
       right: 8px;
-      width: 28px;
-      height: 28px;
-      border-radius: 7px;
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 6px;
       border: none;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
+      gap: 4px;
       background: var(--primary-container, #eaddff);
       color: var(--on-primary-container, #333);
-      font-size: 13px;
+      font-size: 10px;
+      font-weight: 600;
+      font-family: system-ui, -apple-system, sans-serif;
+      letter-spacing: 0.3px;
       transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    }
+
+    .copy-btn .copy-icon {
+      font-size: 12px;
+      display: flex;
+      align-items: center;
     }
 
     .copy-btn:hover {
       background: var(--primary, #6750a4);
       color: var(--on-primary, #fff);
-      transform: scale(1.05);
+      transform: scale(1.03);
     }
 
     .copy-btn:active {
-      transform: scale(0.95);
+      transform: scale(0.97);
     }
 
     .copy-btn.copied {
@@ -742,6 +922,22 @@ export class ColorSchemeViewer extends LitElement {
     .copy-btn:focus-visible {
       outline: 2px solid var(--primary, #6750a4);
       outline-offset: 2px;
+    }
+
+    /* ─── Command syntax highlighting ─── */
+    .cmd-bin {
+      color: var(--primary, #6750a4);
+      font-weight: 700;
+    }
+
+    .cmd-flag {
+      color: var(--tertiary, #7d5260);
+      font-weight: 600;
+    }
+
+    .cmd-value {
+      color: var(--on-surface, #1d1b20);
+      font-weight: 500;
     }
 
     /* ─── File tree ─── */
@@ -945,6 +1141,19 @@ export class ColorSchemeViewer extends LitElement {
         padding: 0 16px 16px;
         gap: 14px;
       }
+
+      .hct-readout {
+        gap: 4px;
+      }
+
+      .hct-chip {
+        padding: 2px 6px;
+        font-size: 9px;
+      }
+
+      .contrast-badge {
+        font-size: 9px;
+      }
     }
   `;
 
@@ -1028,6 +1237,13 @@ export class ColorSchemeViewer extends LitElement {
         : `#${raw.toUpperCase()}`;
       this._debouncedRegenerate();
     }
+  }
+
+  private _onNativeColorPick(e: Event) {
+    const hex = (e.target as HTMLInputElement).value.toUpperCase();
+    this._hexInput = hex;
+    this.seed = hex;
+    this._debouncedRegenerate();
   }
 
   private _onHexBlur() {
@@ -1225,6 +1441,14 @@ export class ColorSchemeViewer extends LitElement {
     if (this._contrastLevel === 1.0) parts.push("--contrast high");
     if (this._outputDir !== "./tokens") parts.push(`-o ${this._outputDir}`);
     return parts.join(" ");
+  }
+
+  /** Render the CLI command with syntax-highlighted spans */
+  private _renderCommand() {
+    const flag = (name: string, value: string) =>
+      html` <span class="cmd-flag">${name}</span> <span class="cmd-value">${value}</span>`;
+
+    return html`<span class="cmd-bin">bun</span> <span class="cmd-value">src/index.ts</span>${flag("-s", `"${this.seed}"`)}${this._format !== "oklch" ? flag("-f", this._format) : nothing}${this._variant !== "tonal-spot" ? flag("--scheme", this._variant) : nothing}${this._contrastLevel === 0.5 ? flag("--contrast", "medium") : this._contrastLevel === 1.0 ? flag("--contrast", "high") : nothing}${this._outputDir !== "./tokens" ? flag("-o", this._outputDir) : nothing}`;
   }
 
   // ────────────────────────────────────────────
@@ -1454,6 +1678,23 @@ export class ColorSchemeViewer extends LitElement {
     // Chevron icon for collapsible sections
     const chevronIcon = html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
 
+    // Variant descriptions for tooltips
+    const VARIANT_DESCRIPTIONS: Record<string, string> = {
+      "tonal-spot": "Tonal Spot \u2014 Balanced, versatile default",
+      "content": "Content \u2014 Faithful to source color",
+      "expressive": "Expressive \u2014 Bold, vibrant combinations",
+      "fidelity": "Fidelity \u2014 Closest to original hue",
+      "monochrome": "Monochrome \u2014 Neutral, grayscale palette",
+      "neutral": "Neutral \u2014 Subtle, understated tones",
+      "vibrant": "Vibrant \u2014 High-chroma, saturated colors",
+    };
+
+    // Section icons (16x16 stroke icons)
+    const paletteIcon = html`<span class="section-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.67 1.5-1.5 0-.38-.15-.74-.39-1.02-.24-.28-.39-.64-.39-1.02 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-5.17-4.49-9-10-9z"/></svg></span>`;
+    const gridIcon = html`<span class="section-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>`;
+    const contrastIcon = html`<span class="section-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v20" /><path d="M12 2a10 10 0 0 1 0 20" fill="currentColor" opacity="0.15"/></svg></span>`;
+    const downloadIcon = html`<span class="section-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>`;
+
     return html`
       <div class="layout">
         <!-- ═══ LEFT: Configurator sidebar ═══ -->
@@ -1461,34 +1702,51 @@ export class ColorSchemeViewer extends LitElement {
 
           <!-- ─── GROUP: Brand Color (always expanded, hero section) ─── -->
           <div class="sidebar-section">
-            <h3 id="brand-color-heading">Brand Color</h3>
-            <div class="seed-input-group">
-              <div
-                class="seed-swatch"
-                aria-hidden="true"
-                style="background:${isValidHex(this._hexInput)
-                  ? (this._hexInput.startsWith("#")
-                      ? this._hexInput
-                      : `#${this._hexInput}`)
-                  : "#ccc"}"
-              ></div>
-              <input
-                class="seed-input"
-                type="text"
-                aria-label="Hex color value"
-                aria-describedby="seed-error"
-                .value=${this._hexInput}
-                @input=${this._onHexInput}
-                @blur=${this._onHexBlur}
-                placeholder="#769CDF"
-                spellcheck="false"
-                autocomplete="off"
-              />
+            <h3 id="brand-color-heading">${paletteIcon} Brand Color</h3>
+            <div class="seed-row">
+              <div class="seed-swatch-wrap" title="Click to pick a color">
+                <div
+                  class="seed-swatch"
+                  style="background:${isValidHex(this._hexInput)
+                    ? (this._hexInput.startsWith("#")
+                        ? this._hexInput
+                        : `#${this._hexInput}`)
+                    : "#ccc"}"
+                ></div>
+                <input
+                  class="seed-color-input"
+                  type="color"
+                  aria-label="Pick brand color"
+                  .value=${isValidHex(this._hexInput)
+                    ? (this._hexInput.startsWith("#") ? this._hexInput : `#${this._hexInput}`)
+                    : "#769CDF"}
+                  @input=${this._onNativeColorPick}
+                />
+              </div>
+              <div class="seed-input-group">
+                <input
+                  class="seed-input"
+                  type="text"
+                  aria-label="Hex color value"
+                  aria-describedby="seed-error"
+                  .value=${this._hexInput}
+                  @input=${this._onHexInput}
+                  @blur=${this._onHexBlur}
+                  placeholder="#769CDF"
+                  spellcheck="false"
+                  autocomplete="off"
+                />
+              </div>
             </div>
             <div class="seed-error" id="seed-error" role="alert">
               ${!isValidHex(this._hexInput) && this._hexInput.length > 1
                 ? "Enter a valid hex color"
                 : ""}
+            </div>
+            <div class="hct-readout">
+              <span class="hct-chip"><span class="hct-label">H</span> ${Math.round(this._hue)}\u00B0</span>
+              <span class="hct-chip"><span class="hct-label">C</span> ${Math.round(this._chroma)}</span>
+              <span class="hct-chip"><span class="hct-label">T</span> ${Math.round(this._tone)}</span>
             </div>
 
             <!-- Hue slider -->
@@ -1510,14 +1768,14 @@ export class ColorSchemeViewer extends LitElement {
                 aria-valuetext="${Math.round(this._hue)} degrees"
                 .value=${String(Math.round(this._hue))}
                 @input=${this._onHueInput}
-                style="background:${this._hueGradient}"
+                style="background:${this._hueGradient};--hue-glow-color:${isValidHex(this._hexInput) ? `color-mix(in srgb, ${this._hexInput.startsWith('#') ? this._hexInput : `#${this._hexInput}`} 30%, transparent)` : 'transparent'}"
               />
             </div>
           </div>
 
           <!-- ─── GROUP: Scheme Settings (always expanded) ─── -->
           <div class="sidebar-section">
-            <h3 id="variant-heading">Scheme Variant</h3>
+            <h3 id="variant-heading">${gridIcon} Scheme Variant</h3>
             <div class="variant-grid" role="radiogroup" aria-labelledby="variant-heading">
               ${this._variantPreviews.map(
                 (p) => html`
@@ -1531,7 +1789,7 @@ export class ColorSchemeViewer extends LitElement {
                     aria-label="${VARIANT_LABELS[p.variant]} scheme variant"
                     @click=${() => this._selectVariant(p.variant)}
                     @keydown=${onActivate(() => this._selectVariant(p.variant))}
-                    title="${VARIANT_LABELS[p.variant]}"
+                    title="${VARIANT_DESCRIPTIONS[p.variant] || VARIANT_LABELS[p.variant]}"
                   >
                     <div class="dots">
                       <div class="dot" style="background:${p.primary}"></div>
@@ -1549,8 +1807,9 @@ export class ColorSchemeViewer extends LitElement {
 
           <!-- ─── Contrast level ─── -->
           <div class="sidebar-section">
-            <h3 id="contrast-heading">Contrast</h3>
+            <h3 id="contrast-heading">${contrastIcon} Contrast</h3>
             <div class="segmented" role="radiogroup" aria-labelledby="contrast-heading">
+              <div class="seg-pill" style="width: calc(100% / 3); transform: translateX(${this._contrastLevel === 0 ? 0 : this._contrastLevel === 0.5 ? 100 : 200}%)"></div>
               ${([
                 { label: "Standard", value: 0.0 },
                 { label: "Medium", value: 0.5 },
@@ -1568,6 +1827,13 @@ export class ColorSchemeViewer extends LitElement {
                 `
               )}
             </div>
+            <div class="contrast-badge">
+              ${this._contrastLevel === 0.0
+                ? html`<span class="contrast-badge-pill level-aa">AA</span> WCAG 2.1 standard compliance`
+                : this._contrastLevel === 0.5
+                  ? html`<span class="contrast-badge-pill level-aa-plus">AA+</span> Enhanced contrast for better readability`
+                  : html`<span class="contrast-badge-pill level-aaa">AAA</span> Highest contrast, maximum accessibility`}
+            </div>
           </div>
 
           <!-- ─── GROUP: Output (collapsible) ─── -->
@@ -1578,7 +1844,7 @@ export class ColorSchemeViewer extends LitElement {
               aria-expanded=${this._outputExpanded}
               aria-controls="output-group-content"
             >
-              <span class="sidebar-group-label">Output</span>
+              <span class="sidebar-group-label">${downloadIcon} Output</span>
               <span class="sidebar-group-chevron ${this._outputExpanded ? '' : 'collapsed'}" aria-hidden="true">
                 ${chevronIcon}
               </span>
@@ -1592,6 +1858,7 @@ export class ColorSchemeViewer extends LitElement {
                 <div class="sidebar-sub">
                   <span class="sidebar-sub-label">Color Format</span>
                   <div class="segmented">
+                    <div class="seg-pill" style="width: calc(100% / ${COLOR_FORMATS.length}); transform: translateX(${COLOR_FORMATS.indexOf(this._format) * 100}%)"></div>
                     ${COLOR_FORMATS.map(
                       (f) => html`
                         <button
@@ -1623,14 +1890,15 @@ export class ColorSchemeViewer extends LitElement {
                 <div class="sidebar-sub">
                   <span class="sidebar-sub-label">CLI Command</span>
                   <div class="command-block">
-                    <code class="command-code">${this._buildCommand()}</code>
+                    <code class="command-code">${this._renderCommand()}</code>
                     <button
                       class="copy-btn ${this._copiedCommand ? "copied" : ""}"
                       @click=${this._copyCommand}
                       title="Copy command"
                       aria-label=${this._copiedCommand ? "Command copied" : "Copy CLI command to clipboard"}
                     >
-                      ${this._copiedCommand ? "\u{2713}" : "\u{2398}"}
+                      <span class="copy-icon">${this._copiedCommand ? "\u{2713}" : "\u{2398}"}</span>
+                      ${this._copiedCommand ? "Copied" : "Copy"}
                     </button>
                   </div>
                 </div>
