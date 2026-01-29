@@ -1,4 +1,4 @@
-import { describe, expect, test, afterEach } from "bun:test";
+import { describe, expect, test, afterEach } from "vitest";
 import { readdir, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { generateTokens } from "./index";

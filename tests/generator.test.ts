@@ -1,12 +1,13 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect } from "vitest";
+import { readFileSync } from "node:fs";
 import { generateTheme, isValidHexColor } from "../src/generator";
 import type { MaterialTheme } from "../src/types";
 
 // Load fixture files
 const fixtures = {
-  "769CDF": await Bun.file("tests/fixtures/seed-769CDF.json").json() as MaterialTheme,
-  "B33B15": await Bun.file("tests/fixtures/seed-B33B15.json").json() as MaterialTheme,
-  "FFDE3F": await Bun.file("tests/fixtures/seed-FFDE3F.json").json() as MaterialTheme,
+  "769CDF": JSON.parse(readFileSync("tests/fixtures/seed-769CDF.json", "utf-8")) as MaterialTheme,
+  "B33B15": JSON.parse(readFileSync("tests/fixtures/seed-B33B15.json", "utf-8")) as MaterialTheme,
+  "FFDE3F": JSON.parse(readFileSync("tests/fixtures/seed-FFDE3F.json", "utf-8")) as MaterialTheme,
 };
 
 describe("isValidHexColor", () => {

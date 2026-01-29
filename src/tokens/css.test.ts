@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { generateHeader, generateIndexCSS, generateAppCSS } from "./css";
 import { DEFAULT_CONFIG } from "./config";
 

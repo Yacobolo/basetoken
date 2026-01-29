@@ -34,7 +34,7 @@ export function generateHeader(
   }
 
   lines.push(" *");
-  lines.push(" * DO NOT EDIT - Regenerate with: bun src/index.ts tokens");
+  lines.push(" * DO NOT EDIT - Regenerate with: npx openhue");
   lines.push(" */");
   lines.push("");
 

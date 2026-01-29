@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { hexToOklch, hexToHsl, hexToRgb, normalizeHex, formatColor, getHue } from "./colors";
 
 describe("hexToOklch", () => {

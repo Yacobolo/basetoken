@@ -45,6 +45,7 @@ export async function generateTokens(options: TokenGeneratorOptions): Promise<vo
     ...userConfig,
     format,
     output: {
+      ...DEFAULT_CONFIG.output,
       ...userConfig.output,
       dir: output || userConfig.output?.dir || DEFAULT_CONFIG.output.dir,
     },

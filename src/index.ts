@@ -1,4 +1,3 @@
-#!/usr/bin/env bun
 /**
  * Design Token Generator CLI
  * Generates CSS design tokens from a Material Design 3 seed color

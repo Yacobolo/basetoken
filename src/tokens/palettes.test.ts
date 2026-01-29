@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { generatePalettesCSS } from "./palettes";
 import type { Palettes } from "../types";
 import { DEFAULT_CONFIG } from "./config";

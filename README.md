@@ -80,20 +80,25 @@ The [live demo site](https://yacobolo.github.io/openhue) lets you:
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) (CLI runtime)
-- [Node.js](https://nodejs.org) 20+ (site build)
+- [Node.js](https://nodejs.org) 18+
 
 ### CLI
 
 ```bash
 # Install dependencies
-bun install
+npm install
 
-# Run the CLI
-bun src/index.ts --seed "#769CDF"
+# Build the CLI
+npm run build
+
+# Run the built CLI
+node dist/index.js --seed "#769CDF"
+
+# Run during development (no build step)
+npm run dev -- --seed "#769CDF"
 
 # Run tests
-bun test
+npm test
 ```
 
 ### Site (Configurator)
@@ -113,7 +118,7 @@ npm run build
 
 ## Tech Stack
 
-**CLI:** TypeScript, Bun, Commander.js, `@material/material-color-utilities`, Culori
+**CLI:** TypeScript, Node.js, Commander.js, `@material/material-color-utilities`, Culori, tsup
 
 **Site:** Lit 3 (Web Components), Vite 6, TypeScript — no UI framework, all CSS in Shadow DOM
 

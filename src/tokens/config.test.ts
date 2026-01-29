@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { DEFAULT_CONFIG, mergeConfig } from "./config";
 import type { TokenConfig } from "./config";
 
